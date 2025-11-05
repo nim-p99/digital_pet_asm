@@ -1,26 +1,26 @@
-#Starter + health bar
+
 .data
 
 EDR_input: .asciiz "enter natural energy depletion rate (EDR) [Default: 1]: "
 EDR: .word 1
-
 MEL_input: .asciiz "enter maximum energy level (MEL) [Default: 15]: "
 MEL: .word 15
-
 IEL_input: .asciiz "enter initial energy level (IEL) [Defualt: 5]: "
 IEL: .word 5
-
+CEL: .word 10 
 welcome_text: .asciiz "=== digital pet simulator (MIPS32) ===\ninitialising system...\n\nPlease set parameters (enter 0 for default values):\n"
-
 initial_text_A:.asciiz "parameters set successfully!\n - EDR "
 initial_text_B: .asciiz " units/sec\n - MEL: "
 initial_text_C: .asciiz " units\n - IEL: "
 initial_text_D: .asciiz " units\n\n your digital pet is alive! current status:"
-
-new_line: "\n"
-
+new_line: .asciiz "\n"
 previous_time: .word 0 
 current_time: .word 0
+health_bar_positive: .asciiz "█"
+health_bar_negative: .asciiz "-"
+health_bar_A: .asciiz "["
+health_bar_B: .asciiz "]Energy: "
+health_bar_C: .asciiz "/"
 
 .text
 main:
@@ -68,13 +68,19 @@ using_default_MEL:
 	add $t0, $v0, $zero # moving user input from $v0 into temp storage
 	la $t1, IEL
 	sw $t0, ($t1)
+	
+	#setting CEL as non-default IEL:
+	lw $t0, IEL
+	sw $t1, CEL
+	
 using_default_IEL:
+	
 
 #--- checking stored values (remove me) ---#
-	li $v0, 1 # print integar syscall called
-	la $t0, EDR #loading address of EDR
-	lw $a0, ($t0)
-	syscall
+	#li $v0, 1 # print integar syscall called
+	#la $t0, CEL #loading address of CEL
+	#lw $a0, ($t0)
+	#syscall
 	
 #--- inital text print ---#
 	#inital_text A
@@ -106,7 +112,7 @@ using_default_IEL:
 	
 	#IEL Value
 	li $v0, 1 # print integar syscall called
-	la $t0, IEL #loading address of EDR
+	la $t0, IEL #loading address of IEL
 	lw $a0, ($t0)
 	syscall
 	
@@ -127,8 +133,8 @@ using_default_IEL:
 	sw $t1, previous_time
 
 loop:
-	#IEL reduced
-	lw $t0, IEL
+	#CEL reduced
+	lw $t0, CEL
 	ble $t0,0, exit_loop #branching if energy is less than or equal to zero to stop loop
 	
 	#finding total amount to reduce by (seconds)
@@ -141,7 +147,7 @@ loop:
 	sub $t2, $t2, $t1 # elpased time stored in $t1
 	div $t2, $t2, 1000 #dividing by 1000 to get seconds 
 	sub $t0, $t0, $t2 #setting IEL to current - number of seconds that has elpased 
-	sw $t0, IEL #storing IEL
+	sw $t0, CEL #storing IEL
 	
 	#updating previous time to current time in preparation for next loop iteration
 	li $v0, 30 #current time in milliseconds 
@@ -153,17 +159,89 @@ loop:
 	la $a0, new_line
 	syscall
 	 
-	#printing new IEL 
+	#printing new CEL 
 	li $v0, 1 
 	move $a0, $t0
 	syscall
+	
+	#printing health bar
+	jal health_bar 
 	
 	#timer loop ==> testing loop to see if changing time will affect how much the energy level is reduced by
 	li $v0, 32 #sleep syscall
 	li $a0, 2000 #loading sleep time amount in milliseconds to ao for syscall
 	syscall 
 	
+	
+	
 	j loop
+
+health_bar:
+    #global current_energy, MEL
+    #print("[" + ("█" * current_energy) + ("-" * (MEL - current_energy)) + (f"] Energy: {current_energy}/{MEL}\n"))   	
+    	
+    	#print [
+    	li $v0, 4
+    	la $a0, health_bar_A
+    	syscall
+ 
+ #--- setting up for loop for current energy level bar ---# 
+    	#initalising for loop                                                                                                                                                                                                        
+	addu $s0, $0, $0 #setting loop counter to 0
+	lw $s2, CEL 
+	add $s1, $0, $s2 #limit of for loop to CEL
+	
+	#for loop 
+for: 	beq $s0, $s1, done #if counter = CEL ==> finsih loop
+ 	addiu $s0, $s0, 1 #increasing loop counter by 1
+ 	#printing "█"
+ 	li $v0, 4 #print string syscall
+	la $a0, health_bar_positive #loading address 
+	syscall #completes print
+ 	j for
+done:
+
+#--- setting up for loop for negative energy level bar ---# 
+	#calculating MEL  - CEL for total '-', storing to s3
+	addu $s3, $0, $0 #setting  to zero
+	lw $s4, MEL
+	lw $s5, CEL 
+	sub $s3, $s4, $s5 
+	    
+	#initalising for loop
+	addu $s0, $0, $0 #setting loop counter to 0
+	add $s1, $0, $s3 #limit of for loop to MEL - CEL
+	
+	#for loop 
+for1: 	beq $s0, $s1, done1 #if counter = CEL ==> finsih loop
+ 	addiu $s0, $s0, 1 #increasing loop counter by 1
+ 		#printing "█"
+ 		li $v0, 4 #print string syscall
+		la $a0, health_bar_negative #loading address 
+		syscall #completes print
+ 	j for1
+done1:
+
+	#print "] Energy: CEL / MEL"
+    	li $v0, 4
+    	la $a0, health_bar_B
+    	syscall
+    	
+    	lw $a0, CEL
+    	li $v0, 1
+    	syscall
+    	
+    	li $v0, 4
+    	la $a0, health_bar_C
+    	syscall
+    	
+    	li $v0, 1
+    	lw $a0, MEL
+    	syscall
+    	
+    	
+	jr $ra
+    
 	
 exit_loop:
 			
