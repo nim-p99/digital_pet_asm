@@ -1,4 +1,4 @@
-
+#Starter + health bar
 .data
 
 EDR_input: .asciiz "enter natural energy depletion rate (EDR) [Default: 1]: "
