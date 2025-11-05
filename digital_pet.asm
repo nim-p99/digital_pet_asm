@@ -16,7 +16,8 @@ feed_message2: .asciiz "Energy increased by "
 feed_message3: .asciiz " units\n"
 deplete_string1: .asciiz "time +"
 deplete_string2: .asciiz "s ... natural energy depletion!\n"
-death_message: .asciiz "*** your digital pet has died! ***\nWhat's your next move? (R,Q) >"
+death_message1: .asciiz "Error, energy level equal or less than 0. DP is dead!"
+death_message2: .asciiz "*** your digital pet has died! ***\nWhat's your next move? (R,Q) >"
 
 
 
@@ -222,32 +223,82 @@ deplete:
 	add $a0, $t2, $0
 	syscall
 
-  	li $v0, 4
-  	la $a0, deplete_string2
- 	 syscall 
+  li $v0, 4
+  la $a0, deplete_string2
+  syscall 
 	
 	li $v0, 4
 	la $a0, newline
 	syscall
 
+  lw $t3, current_energy
+  # if result is negative
+  bgt $t2, $t3, set_zero
+  sub $t3, $t3, $t2 
+  sw $t3, current_energy
+
 	j game_loop_start
+
+set_zero:
+  lw $t3, current_energy
+  add $t3, $0, $0
+  sw $t3, current_energy
+  j game_loop_start
+
+#---------------------------------------
+check_energy_level: 
+  addi $sp, $sp, -4
+  sw $ra, 0($sp)
+
+  lw $t1, current_energy
+  lw $t2, MEL
+  bgt $t1, $t2, max_energy
+  ble $t1, $0, dead
+  jr $ra
+max_energy:
+  add $t1, $t2, $0
+  sw $t1, current_energy
+  jr $ra 
+
+#---------------------------------------
+dead:
+  # set current_energy to 0
+  lw $t1, current_energy
+  add $t1, $0, $0
+  sw $t1, current_energy
+
+  li $v0, 4
+  la $a0, death_message1
+  syscall
+  
+  jal health_bar
+
+  li $v0, 4
+  la $a0, death_message2
+  j exit
 
 #---------------------------------------------
 game_loop_start:
+  jal check_energy_level
   jal health_bar
 
 game_loop:
+  # start time 
   li $v0, 30
   syscall
   sw $a0, initial_time
+  # prompt user 
   li $v0, 5
   syscall
+  # end time
   li $v0, 30
   syscall
   lw $t0, initial_time
+  # calculate elapsed time
   sub $t1, $a0, $t0
   sw $t1, elapsed_time
   lw $t2, time_interval
+  # if > interval --> deplete
   bgt $t1, $t2, deplete
   j game_loop_start
 
