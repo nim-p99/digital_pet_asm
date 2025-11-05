@@ -15,6 +15,7 @@ newline_char: .byte 10
 EDR: .word 1
 MEL: .word 15
 IEL: .word 5
+current_energy: .word 0
 
 
 .text
@@ -33,20 +34,7 @@ main:
   jal set_param 
   beq $t0, $t1, set_MEL #if 1st char = \n --> default EDR 
   jal convert_to_int #else, convert input to int
-  sw $t3, EDR
-  j set_MEL
-
-set_param:
-#read input as string
-  li $v0, 8
-  la $a0, buffer
-  li $a1, 256
-  syscall
-  # check for enter (\n)
-  lb $t0, buffer #load first byte of buffer into $t0
-  lbu $t1, newline_char #loads 10 into $t1
-  jr $ra 
-  
+  sw $t3, EDR 
 
 set_MEL:
 # set MEL 
@@ -65,12 +53,29 @@ set_IEL:
   jal set_param 
   beq $t0, $t1, print_parameters 
   jal convert_to_int
-  sw $t3, IEL 
+  sw $t3, IEL
   j print_parameters
 
 
+
+#----------------------------------------------------
+set_param:
+#read input as string
+  li $v0, 8
+  la $a0, buffer
+  li $a1, 256
+  syscall
+  # check for enter (\n)
+  lb $t0, buffer #load first byte of buffer into $t0
+  lbu $t1, newline_char #loads 10 into $t1
+  jr $ra 
+
+#--------------------------------------------------------
 # THIS CONVERTS A STRING TO AN INT
 convert_to_int: 
+  addi $sp, $sp, -4
+  sw $ra, 0($sp)
+
   la $t2, buffer #$t2 is a pointer to current char 
   li $t3, 0
 conversion_loop:
@@ -96,10 +101,16 @@ conversion_loop:
   j conversion_loop
 
 conversion_done:
+  lw $ra, 0($sp)
+  addi $sp, $sp, 4
   jr $ra
-
+#----------------------------------------------
 
 print_parameters:
+  # set current level to IEL.
+  lw $t0, IEL
+  sw $t0, current_energy
+
   li $v0, 4
   la $a0, start_game_text1
   syscall
@@ -121,10 +132,51 @@ print_parameters:
   li $v0, 4
   la $a0, start_game_text4
   syscall
+  j game_loop
 
 
+#-----------------------------------------------
+health_bar:
+  addi $sp, $sp, -4
+  sw $ra, 0($sp)
+
+  lw $t0, current_energy
+  lw $t1, MEL
+  li $t2, 0
+  li $t4, 0
+
+  sub $t3, $t1, $t0
+
+  li $v0, 11
+  li $a0 91 #'['
+  syscall
+block_loop:
+  beq $t0, $t2, dash_loop
+  li $v0, 11
+  li $a0, 9608 # '█'
+  syscall
+  addi $t2, $t2, 1
+  j block_loop
+dash_loop:
+  beq $t4, $t3, end_health_bar
+  li $v0, 11
+  li $a0, 45 # '-'
+  syscall
+  addi $t4, $t4 1
+  j dash_loop 
+end_health_bar:
+  li $v0, 11
+  li $a0, 93 # ']'
+  syscall
+
+  lw $ra, 0($sp)
+  addi $sp, $sp, 4
+  jr $ra 
+
+#-----------------------------------------
 game_loop:
-  j exit 
+  jal health_bar
+  j exit
 
 
 exit:
