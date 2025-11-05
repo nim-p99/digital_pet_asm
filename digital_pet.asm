@@ -15,8 +15,7 @@ newline_char: .byte 10
 EDR: .word 1
 MEL: .word 15
 IEL: .word 5
-delay: .word 50
-depletion_time: 2000
+
 
 .text
 .globl main
@@ -31,7 +30,13 @@ main:
   li $v0, 4
   la $a0, EDR_prompt
   syscall
+  jal set_param 
+  beq $t0, $t1, set_MEL #if 1st char = \n --> default EDR 
+  jal convert_to_int #else, convert input to int
+  sw $t3, EDR
+  j set_MEL
 
+set_param:
 #read input as string
   li $v0, 8
   la $a0, buffer
@@ -40,22 +45,15 @@ main:
   # check for enter (\n)
   lb $t0, buffer #load first byte of buffer into $t0
   lbu $t1, newline_char #loads 10 into $t1
-  beq $t0, $t1, set_MEL #if 1st char = \n --> default EDR 
-  jal convert_to_int #else, convert input to int
-  sw $t3, EDR
+  jr $ra 
+  
 
 set_MEL:
 # set MEL 
   li $v0, 4
   la $a0, MEL_prompt
-  syscall
-
-  li $v0, 8
-  la $a0, buffer
-  li $a1, 256
-  syscall
-  lb $t0, buffer
-  lbu $t1, newline_char
+  syscall 
+  jal set_param 
   beq $t0, $t1, set_IEL 
   jal convert_to_int
   sw $t3, MEL 
@@ -64,13 +62,7 @@ set_IEL:
   li $v0, 4
   la $a0, IEL_prompt
   syscall
-
-  li $v0, 8
-  la $a0, buffer
-  li $a1, 256
-  syscall
-  lb $t0, buffer
-  lbu $t1, newline_char
+  jal set_param 
   beq $t0, $t1, print_parameters 
   jal convert_to_int
   sw $t3, IEL 
