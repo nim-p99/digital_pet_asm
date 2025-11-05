@@ -9,6 +9,8 @@ start_game_text1: .asciiz "\nParameters set successfully!\n- EDR: "
 start_game_text2: .asciiz " units/sec\n-MEL: "
 start_game_text3: .asciiz " units\n-IEL: "
 start_game_text4: .asciiz " units\n\nYour digital pet is alive! Current status:\n"
+healthbar_text: .asciiz " Energy: "
+
 
 buffer: .space 256 #buffer to hold string input (256 chars)
 newline_char: .byte 10
@@ -172,6 +174,21 @@ end_health_bar:
   li $v0, 11
   li $a0, 93 # ']'
   syscall
+  li $v0, 4
+  la $a0, healthbar_text
+  syscall
+  li $v0, 1
+  lw $a0, current_energy
+  syscall
+  li $v0, 11
+  li $a0, 47 # '/'
+  syscall
+  li $v0, 1
+  lw $a0, MEL
+  syscall
+  li $v0, 4
+  la $a0, newline
+  syscall 
 
   lw $ra, 0($sp)
   addi $sp, $sp, 4
