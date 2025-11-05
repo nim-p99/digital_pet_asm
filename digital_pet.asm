@@ -14,6 +14,8 @@ command_prompt: .asciiz "Enter a command (F, E, P, I, R, Q) eg F2 >"
 feed_message1: .asciiz "Command recognised: Feed "
 feed_message2: .asciiz "Energy increased by "
 feed_message3: .asciiz " units\n"
+deplete_string1: .asciiz "time +"
+deplete_string2: .asciiz "s ... natural energy depletion!\n"
 death_message: .asciiz "*** your digital pet has died! ***\nWhat's your next move? (R,Q) >"
 
 
@@ -24,10 +26,9 @@ EDR: .word 1
 MEL: .word 15
 IEL: .word 5
 current_energy: .word 0
-
-depletion_interval: .word 3000
-feed_amount: .word 2 
-last_depletion_time: .word 0     # stores time of last depletion event 
+initial_time: .word 0
+elapsed_time: .word 0
+time_interval: .word 1000
 
 
 .text
@@ -149,7 +150,7 @@ print_parameters:
   li $v0, 4
   la $a0, start_game_text4
   syscall
-  j game_loop
+  j game_loop_start
 
 #---------------------------------------------
 health_bar:
@@ -204,10 +205,53 @@ end_health_bar:
   addi $sp, $sp, 4
   jr $ra 
 
+
+
+#-------------------------------------------
+deplete:
+  lw $t0, elapsed_time
+	lw $t1, time_interval
+	div $t0, $t1
+	mflo $t2
+	
+	li $v0, 4
+	la $a0, deplete_string1
+	syscall
+	
+	li $v0, 1
+	add $a0, $t2, $0
+	syscall
+
+  	li $v0, 4
+  	la $a0, deplete_string2
+ 	 syscall 
+	
+	li $v0, 4
+	la $a0, newline
+	syscall
+
+	j game_loop_start
+
 #---------------------------------------------
-game_loop:
+game_loop_start:
   jal health_bar
-  j exit
+
+game_loop:
+  li $v0, 30
+  syscall
+  sw $a0, initial_time
+  li $v0, 5
+  syscall
+  li $v0, 30
+  syscall
+  lw $t0, initial_time
+  sub $t1, $a0, $t0
+  sw $t1, elapsed_time
+  lw $t2, time_interval
+  bgt $t1, $t2, deplete
+  j game_loop_start
+
+
 
 #---------------------------------------------
 exit:
