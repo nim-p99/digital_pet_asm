@@ -27,11 +27,13 @@ main:
   la $a0, welcome_text
   syscall
 
-# set EDR 
+# INITIATE SETTING PARAMETERS  
   li $v0, 4
   la $a0, EDR_prompt
   syscall
-  
+
+
+param_input:
 #read input as string
   li $v0, 8
   la $a0, buffer
@@ -77,11 +79,10 @@ set_IEL:
   j print_parameters
 
 
-
+# THIS CONVERTS A STRING TO AN INT
 convert_to_int: 
   la $t2, buffer #$t2 is a pointer to current char 
   li $t3, 0
-
 conversion_loop:
   lb $t0, 0($t2)
   li $t1, 10 #(\n)
@@ -107,8 +108,6 @@ conversion_loop:
 conversion_done:
   jr $ra
 
-default_EDR:
-  j print_parameters
 
 print_parameters:
   li $v0, 4
