@@ -1,176 +1,197 @@
-
 .data
+welcome_text:.asciiz
+"===digital pet simulator (MIPS32) ===\ninitialising system...\nPlease set parameters (press Enter for default)\n"
+first_prompt:.asciiz
+"Please enter the natural energy depeltion rate EDR. If not set, default value is 1 unit of energy every 1 second\n"
+second_prompt:.asciiz
+"Please enter the maximum energy level MEL. If not set, default value is 15\n"
+third_prompt:.asciiz
+"Please enter the initial energy level IEL. If not set, default value is 5\n"
+msg_success:.asciiz
+"\nPet's initial parameters set successfully!\n"
+msg_EDR:.asciiz
+"- EDR: "
+msg_MEL:.asciiz
+"- MEL: "
+msg_IEL:.asciiz
+"- IEL: "
+msg_units_sec:.asciiz
+" units/sec\n"
+msg_units:.asciiz
+" units\n"
+msg_alive:.asciiz
+"\nYour digital pet is alive!\n"
+msg_current_energy:.asciiz
+"Current energy: "
+dog_art:.asciiz
+"     .-.\n     (___________________________()6 `-,\n     (   ______________________   /''\"`\n     //\\\\                      //\\\\\n      \"\" \"\"                     \"\" \"\"\n"
 
-EDR_input: .asciiz "enter natural energy depletion rate (EDR) [Default: 1]: "
-EDR: .word 1
-
-MEL_input: .asciiz "enter maximum energy level (MEL) [Default: 15]: "
-MEL: .word 15
-
-IEL_input: .asciiz "enter initial energy level (IEL) [Defualt: 5]: "
-IEL: .word 5
-
-welcome_text: .asciiz "=== digital pet simulator (MIPS32) ===\ninitialising system...\n\nPlease set parameters (enter 0 for default values):\n"
-
-initial_text_A:.asciiz "parameters set successfully!\n - EDR "
-initial_text_B: .asciiz " units/sec\n - MEL: "
-initial_text_C: .asciiz " units\n - IEL: "
-initial_text_D: .asciiz " units\n\n your digital pet is alive! current status:"
-
-new_line: "\n"
-
-previous_time: .word 0 
-current_time: .word 0
+input_buffer:.space
+16  # store text (if presses enter)
+EDR:.word
+0
+MEL:.word
+0
+IEL:.word
+0
+default_EDR_val:.word
+1
+default_MEL_val:.word
+15
+default_IEL_val:.word
+5
 
 .text
-main:
-#--- printing welcome message ---#
-	li $v0, 4 #print string syscall: EDR_input
-	la $a0, welcome_text #loading address for syscall 
-	syscall
-	
-#--- asking for default values, EDR -----#
-	li $v0, 4 #print string syscall: EDR_input
-	la $a0, EDR_input #loading address of EDR_input for syscall
-	syscall
-	
-	li $v0, 5 #read integer syscall: prompting user to enter an integar  
-	syscall 
-	beqz $v0, using_default_EDR #preventing error if enter pressed ==> uses deffault values
-	
-	add $t0, $v0, $zero # moving user input from $v0 into temp storage
-	sw $t0, EDR #storing the the user input into the EDR variable 
-	
-using_default_EDR:
+.globl
+main
 
-#--- asking for default values, MEL -----#
-	li $v0, 4 #print string syscall: MEL_input
-	la $a0, MEL_input #loading address of MEL_input for syscall
-	syscall #completes print
-	  
-	li $v0, 5 #read integer syscall: prompting user to enter an integar  
-	syscall 
-	beqz $v0, using_default_MEL
-		
-	add $t0, $v0, $zero # moving user input from $v0 into temp storage
-	sw $t0, MEL
-using_default_MEL:
+main:  # print doggy
+la $a0, dog_art
+li $v0, 4
+syscall
 
-#--- asking for default values, IEL -----#
-	li $v0, 4 #print string syscall: IEL_input
-	la $a0, IEL_input #loading address of IEL_input for syscall
-	syscall #completes print
-	  
-	li $v0, 5 #read integer syscall: prompting user to enter an integar  
-	syscall 
-	beqz $v0, using_default_IEL
-		
-	add $t0, $v0, $zero # moving user input from $v0 into temp storage
-	la $t1, IEL
-	sw $t0, ($t1)
-using_default_IEL:
+# print welcome text
+addi $v0, $0, 4  # Set system call code (print welcome text) #4 sets the string
+la   $a0, welcome_text  # Load address of string into $a0.
+syscall  # Print string.
 
-#--- checking stored values (remove me) ---#
-	li $v0, 1 # print integar syscall called
-	la $t0, EDR #loading address of EDR
-	lw $a0, ($t0)
-	syscall
-	
-#--- inital text print ---#
-	#inital_text A
-	li $v0, 4 #print string syscall
-	la $a0, initial_text_A #loading address 
-	syscall #completes print
-	
-	#EDR Value
-	li $v0, 1 # print integar syscall called
-	la $t0, EDR #loading address of EDR
-	lw $a0, ($t0)
-	syscall
-	
-	#initial_text_B
-	li $v0, 4 #print string syscall
-	la $a0, initial_text_B #loading address 
-	syscall #completes print
-	
-	#MEL Value
-	li $v0, 1 # print integar syscall called
-	la $t0, MEL #loading address of EDR
-	lw $a0, ($t0)
-	syscall
-	
-	#initial_text_C
-	li $v0, 4 #print string syscall
-	la $a0, initial_text_C #loading address 
-	syscall #completes print
-	
-	#IEL Value
-	li $v0, 1 # print integar syscall called
-	la $t0, IEL #loading address of EDR
-	lw $a0, ($t0)
-	syscall
-	
-	#initial_text_D
-	li $v0, 4 #print string syscall
-	la $a0, initial_text_D #loading address 
-	syscall #completes print
-	
-# --- Finding current time -- #
-	
-	#time syscall
-	li $v0, 30 #retrieves number of seconds since Jan 1 1970 and stores it as a 64 bit using two registers a1:a0
-	syscall
-	
-	
-	#store the lsb to $t1
-	move $t1, $a0 #only using the lower half of the time, means this works for up to 32,767 seconds
-	sw $t1, previous_time
+# EDR Prompt
+addi $v0, $0, 4  # Set system call code (print welcome text) #4 sets the string
+la   $a0, first_prompt
+syscall
 
-loop:
-	#IEL reduced
-	lw $t0, IEL
-	ble $t0,0, exit_loop #branching if energy is less than or equal to zero to stop loop
-	
-	#finding total amount to reduce by (seconds)
-	li $v0, 30 #current time in milliseconds 
-	syscall
-	
-	#store the lsb to $t1
-	move $t2, $a0
-	lw $t1, previous_time #  getting previous number of milliseconds
-	sub $t2, $t2, $t1 # elpased time stored in $t1
-	div $t2, $t2, 1000 #dividing by 1000 to get seconds 
-	sub $t0, $t0, $t2 #setting IEL to current - number of seconds that has elpased 
-	sw $t0, IEL #storing IEL
-	
-	#updating previous time to current time in preparation for next loop iteration
-	li $v0, 30 #current time in milliseconds 
-	syscall
-	sw $a0, previous_time 
-	
-	#print new line
-	li $v0, 4
-	la $a0, new_line
-	syscall
-	 
-	#printing new IEL 
-	li $v0, 1 
-	move $a0, $t0
-	syscall
-	
-	#timer loop ==> testing loop to see if changing time will affect how much the energy level is reduced by
-	li $v0, 32 #sleep syscall
-	li $a0, 2000 #loading sleep time amount in milliseconds to ao for syscall
-	syscall 
-	
-	j loop
-	
-exit_loop:
-			
-	#exit
-	li $v0, 10
-	syscall	
+# Read EDR input AS STRING not integer anymore
+li $v0, 8
+la $a0, input_buffer
+li $a1, 16
+syscall
 
+# Check is user pressed ENTER
+lb $t1, input_buffer
+beq $t1, 10, default_EDR  # JUMPS TO default_EDR  # ASCII 10 is the newline character / if \n uses 1 (default)
+
+# If not enter then reads integer
+li $v0, 5
+syscall
+j
+store_EDR
+
+default_EDR:
+li $v0, 1
+
+store_EDR:
+sw $v0, EDR
+
+# MEL Prompt
+addi $v0, $0, 4  # Set system call code (print welcome text) #4 sets the string
+la   $a0, second_prompt
+syscall
+
+# Read MEL input AS STRING not integer anymore
+li $v0, 8
+la $a0, input_buffer
+li $a1, 16
+syscall
+
+# Check is user pressed ENTER
+lb $t1, input_buffer
+beq $t1, 10, default_MEL
+
+# If not enter then stores the number inputted
+li $v0, 5
+syscall
+j
+store_MEL
+
+default_MEL:
+li $v0, 15
+
+store_MEL:
+sw $v0, MEL
+
+# IEL Prompt
+addi $v0, $0, 4  # Set system call code (print welcome text) #4 sets the string
+la   $a0, third_prompt
+syscall
+
+# Read MEL input AS STRING not integer anymore
+li $v0, 8
+la $a0, input_buffer
+li $a1, 16
+syscall
+
+# Check is user pressed ENTER
+lb $t1, input_buffer
+beq $t1, 10, default_IEL
+
+# If not enter then stores the number inputted
+li $v0, 5
+syscall
+j
+store_IEL
+
+default_IEL:
+li $v0, 5
+
+store_IEL:
+sw $v0, IEL
+
+# displayed confirmation
+li $v0, 4
+la $a0, msg_success
+syscall
+
+# --- Print EDR ---
+li $v0, 4
+la $a0, msg_EDR
+syscall
+lw $a0, EDR
+li $v0, 1
+syscall
+li $v0, 4
+la $a0, msg_units_sec
+syscall
+
+# --- Print MEL ---
+li $v0, 4
+la $a0, msg_MEL
+syscall
+lw $a0, MEL
+li $v0, 1
+syscall
+li $v0, 4
+la $a0, msg_units
+syscall
+
+# --- Print IEL ---
+li $v0, 4
+la $a0, msg_IEL
+syscall
+lw $a0, IEL
+li $v0, 1
+syscall
+li $v0, 4
+la $a0, msg_units
+syscall
+
+# --- Final message ---
+li $v0, 4
+la $a0, msg_alive
+syscall
+
+# Prints current energy
+li $v0, 4
+la $a0, msg_current_energy
+syscall
+lw $a0, IEL
+li $v0, 1
+syscall
+li $v0, 4
+la $a0, msg_units
+syscall
+
+li   $v0, 10
+syscall
 
 	
 	  
