@@ -10,6 +10,12 @@ start_game_text2: .asciiz " units/sec\n-MEL: "
 start_game_text3: .asciiz " units\n-IEL: "
 start_game_text4: .asciiz " units\n\nYour digital pet is alive! Current status:\n"
 healthbar_text: .asciiz " Energy: "
+command_prompt: .asciiz "Enter a command (F, E, P, I, R, Q) eg F2 >"
+feed_message1: .asciiz "Command recognised: Feed "
+feed_message2: .asciiz "Energy increased by "
+feed_message3: .asciiz " units\n"
+death_message: .asciiz "*** your digital pet has died! ***\nWhat's your next move? (R,Q) >"
+
 
 
 buffer: .space 256 #buffer to hold string input (256 chars)
@@ -18,6 +24,10 @@ EDR: .word 1
 MEL: .word 15
 IEL: .word 5
 current_energy: .word 0
+
+depletion_interval: .word 3000
+feed_amount: .word 2 
+last_depletion_time: .word 0     # stores time of last depletion event 
 
 
 .text
