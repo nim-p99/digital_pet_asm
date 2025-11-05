@@ -32,8 +32,6 @@ main:
   la $a0, EDR_prompt
   syscall
 
-
-param_input:
 #read input as string
   li $v0, 8
   la $a0, buffer
