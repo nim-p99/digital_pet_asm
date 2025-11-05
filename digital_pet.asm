@@ -22,18 +22,21 @@ current_energy: .word 0
 .globl main
 
 main:
-#print weclome text
+#print welcome text
   li $v0, 4
   la $a0, welcome_text
   syscall
 
-# INITIATE SETTING PARAMETERS  
+#----------------------------------------------
+
+# Initiate setting the parameters
+# set EDR
   li $v0, 4
   la $a0, EDR_prompt
   syscall
   jal set_param 
-  beq $t0, $t1, set_MEL #if 1st char = \n --> default EDR 
-  jal convert_to_int #else, convert input to int
+  beq $t0, $t1, set_MEL     #if 1st char = \n(enter) --> use default
+  jal convert_to_int        #else, convert input to int
   sw $t3, EDR 
 
 set_MEL:
@@ -56,9 +59,8 @@ set_IEL:
   sw $t3, IEL
   j print_parameters
 
+#----------------------------------------------
 
-
-#----------------------------------------------------
 set_param:
 #read input as string
   li $v0, 8
@@ -68,10 +70,11 @@ set_param:
   # check for enter (\n)
   lb $t0, buffer #load first byte of buffer into $t0
   lbu $t1, newline_char #loads 10 into $t1
-  jr $ra 
+  jr $ra
 
-#--------------------------------------------------------
-# THIS CONVERTS A STRING TO AN INT
+#----------------------------------------------
+
+# Converts a string to an INT
 convert_to_int: 
   addi $sp, $sp, -4
   sw $ra, 0($sp)
@@ -104,13 +107,15 @@ conversion_done:
   lw $ra, 0($sp)
   addi $sp, $sp, 4
   jr $ra
-#----------------------------------------------
+
+#---------------------------------------------
 
 print_parameters:
   # set current level to IEL.
   lw $t0, IEL
   sw $t0, current_energy
-
+  
+  # Print all parameters 
   li $v0, 4
   la $a0, start_game_text1
   syscall
@@ -134,8 +139,7 @@ print_parameters:
   syscall
   j game_loop
 
-
-#-----------------------------------------------
+#---------------------------------------------
 health_bar:
   addi $sp, $sp, -4
   sw $ra, 0($sp)
@@ -173,12 +177,12 @@ end_health_bar:
   addi $sp, $sp, 4
   jr $ra 
 
-#-----------------------------------------
+#---------------------------------------------
 game_loop:
   jal health_bar
   j exit
 
-
+#---------------------------------------------
 exit:
   li $v0, 10
   syscall
