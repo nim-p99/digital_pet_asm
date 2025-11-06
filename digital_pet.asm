@@ -16,7 +16,7 @@ feed_message2: .asciiz "Energy increased by "
 feed_message3: .asciiz " units\n"
 deplete_string1: .asciiz "time +"
 deplete_string2: .asciiz "s ... natural energy depletion!\n"
-death_message1: .asciiz "Error, energy level equal or less than 0. DP is dead!"
+death_message1: .asciiz "Error, energy level equal or less than 0. DP is dead!\n"
 death_message2: .asciiz "*** your digital pet has died! ***\nWhat's your next move? (R,Q) >"
 
 
@@ -239,6 +239,9 @@ deplete:
 
 	j game_loop_start
 
+
+# If depletion will make current_energy negative:
+# we set current_energy to 0.
 set_zero:
   lw $t3, current_energy
   add $t3, $0, $0
@@ -275,6 +278,7 @@ dead:
 
   li $v0, 4
   la $a0, death_message2
+  syscall
   j exit
 
 #---------------------------------------------
