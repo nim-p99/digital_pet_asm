@@ -411,7 +411,11 @@ feed:
   li $v0, 4
   syscall
 
-  #TODO: implement feed function
+  #Updating Current energy
+  move $a0, $t5   # a0 = count (n feed actions)
+  li   $a1, 1     # a1 = per-pet value (e.g., +1 energy per feed)
+  jal  increase_energy
+  
   
   # reallocate stack and return
   lw $ra, 0($sp)
@@ -436,12 +440,15 @@ entertain:
   li $v0, 4
   syscall
 
-  #TODO: implement entertain function
+  #Updating Current energy
+  move $a0, $t5   # a0 = count (n feed actions)
+  li   $a1, 2     # a1 = per-enterain value (e.g., +1 energy per feed)
+  jal  increase_energy
 
   # reallocate stack and return
   lw $ra, 0($sp)
   addi $sp, $sp, 4
-  jr   $ra
+  jr   $ra  
 
 pet:
   # stack setup
@@ -461,8 +468,11 @@ pet:
   li $v0, 4
   syscall
 
-  #TODO: implement pet function
-
+  #Increase energy
+  move $a0, $t5   # a0 = count (n feed actions)
+  li   $a1, 2     # a1 = +2 energy per pet
+  jal  increase_energy
+  
   # reallocate stack and return
   lw $ra, 0($sp)
   addi $sp, $sp, 4
@@ -486,20 +496,45 @@ ignore:
   li $v0, 4
   syscall
 
-  #TODO: implement ignore function
-
+  #Decrease Energy
+  move $a0, $t5   # a0 = count (n feed actions)
+  li   $a1, -3     # a1 = -3 energy per ignore
+  jal  increase_energy
+  
   # reallocate stack and return
   lw $ra, 0($sp)
   addi $sp, $sp, 4
   jr   $ra
 
 
+#----------------------------------------------------------------
+# increase_energy
+# Inputs:
+#   $a0 = count  (number of repetitions)
+#   $a1 = inc    (value to add to currentEnergy each repetition)
+# Behavior: adds (inc * count) to currentEnergy by looping count times.
+#----------------------------------------------------------------
+increase_energy:
+    addi $sp, $sp, -4
+    sw   $ra, 0($sp)
+    move $t5, $a0    # t5 = loop counter from action
+    move $t1, $a1    # t1 = increment per iteration
+
+ie_loop:
+    lw   $t0, currentEnergy
+    add  $t0, $t0, $t1
+    sw   $t0, currentEnergy
+    addi $t5, $t5, -1
+    bgtz $t5, ie_loop
+
+ie_done:
+    lw   $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr   $ra
+
 # ==============================================================
 # END OF  TO IMPLEMENY
 # ==============================================================
-
-
-
 
 # initSystem — Displays start-up messages
 initSystem:
