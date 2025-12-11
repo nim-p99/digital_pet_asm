@@ -74,7 +74,7 @@ BAR_WIDTH: .word 20
 
 spaceStr:  .asciiz " "
 
-newline:   .asciiz "\n "
+newline:   .asciiz "\n"
 
 fullstop:  .asciiz ".\n"
 
@@ -195,17 +195,16 @@ depleteLoop:
   j afterDecr
 
 setZero:
-  lw $t4, currentEnergy
-  add $t4, $0, $0 
+  li $t4, 0
   sw $t4, currentEnergy
 
 afterDecr:
-  jal healthBar
-  jal displayEnergyStatus
   addi $t3, $t3, 1
   j depleteLoop
   
 depleteDone:
+  jal getSysTime
+  sw $v0, initial_time
   lw $ra, 0($sp)
   addi $sp, $sp, 4
   jr $ra
@@ -577,7 +576,7 @@ ignore:
   syscall
   
   # Energy decreased by 3*n
-  li, $t6, 3
+  li $t6, 3
   mul $t7, $t5, $t6
   
   la $a0, energy_dec_msg
@@ -922,7 +921,7 @@ healthBar:
   sub $t3, $t1, $t0
 
   li $v0, 11
-  li $a0 91 #'['
+  li $a0, 91 #'['
   syscall
 block_loop:
   beq $t0, $t2, dash_loop
@@ -936,7 +935,7 @@ dash_loop:
   li $v0, 11
   li $a0, 45 # '-'
   syscall
-  addi $t4, $t4 1
+  addi $t4, $t4, 1
   j dash_loop 
 end_health_bar:
   li $v0, 11
