@@ -105,8 +105,8 @@ main:
     
 gameLoop:
     jal checkEnergyLevel
-    jal healthBar
-    jal displayEnergyStatus
+   # jal healthBar
+   # jal displayEnergyStatus
     jal getSysTime
     sw $v0, initial_time 
     la   $a0, gameCommandPrompt
@@ -168,47 +168,55 @@ checkTimeDone:
 
 
 deplete:
-  addi $sp, $sp, -4
-  sw $ra, 0($sp)
+  addi $sp, $sp, -12
+  sw $ra, 8($sp)
+  sw $s0, 4($sp)
+  sw $s1, 0($sp)
 
   # calculates how many seconds elapsed 
   lw $t0, elapsed_time
   lw $t1, time_interval
   div $t0, $t1 
-  mflo $t2 
+  mflo $s1  # value needs to be preserved 
   
-  li $t3, 0 # loop counter
+  li $s0, 0 # loop counter - need to be preserved
 
 depleteLoop:
-  beq $t3, $t2, depleteDone
+  beq $s0, $s1, depleteDone
   
   # print Time +1s... etc
   la $a0, energyDepleteMsg
   jal printString
 
   # deplete currentEnergy 
-  lw $t4, currentEnergy
-  addi $t4, $t4, -1
+  lw $t3, currentEnergy
+  addi $t3, $t3, -1
   # If result will be negative --> set to zero 
-  bltz $t4, setZero
-  sw $t4, currentEnergy
+  bltz $t3, setZero
+  sw $t3, currentEnergy
   j afterDecr
 
 setZero:
-  li $t4, 0
-  sw $t4, currentEnergy
+  li $t3, 0
+  sw $t3, currentEnergy
 
 afterDecr:
+  #if energy hits zero stop
+  lw $t3, currentEnergy
+  beqz $t3, depleteDone
+  #otherwise print bar and continue
   jal healthBar
   jal displayEnergyStatus
-  addi $t3, $t3, 1
+  addi $s0, $s0, 1
   j depleteLoop
   
 depleteDone:
   jal getSysTime
   sw $v0, initial_time
-  lw $ra, 0($sp)
-  addi $sp, $sp, 4
+  lw $s1, 0($sp)
+  lw $s0, 4($sp)
+  lw $ra, 8($sp)
+  addi $sp, $sp, 12
   jr $ra
 
 
@@ -633,6 +641,23 @@ ie_loop:
     sw   $t0, currentEnergy
     addi $t5, $t5, -1
     bgtz $t5, ie_loop
+    
+    lw $t0, currentEnergy
+    #if <=0 -> set to 0
+    blez $t0, ie_set_zero
+    
+    #if > MEL -> set to MEL
+    lw $t1, MEL
+    ble $t0, $t1, ie_store_done
+    move $t0, $t1
+
+ie_store_done:
+    sw $t0, currentEnergy
+    j ie_done
+
+ie_set_zero:
+    li $t0, 0
+    sw $t0, currentEnergy
 
 ie_done:
     lw   $ra, 0($sp)
