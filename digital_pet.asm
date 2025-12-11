@@ -7,7 +7,7 @@ welcomeMessage:      .asciiz "=== Digital Pet Simulator (MIPS32) ===\n"
 initMessage:         .asciiz "Initialising system...\n\n"
 setParamMsg:         .asciiz "Please set parameters (press Enter for default): \n"
 successMsg:          .asciiz "\nParameters set successfully!\n"
-initStatusAlive:     .asciiz "Your Digital Pet is alive! Current status:\n"
+initStatusAlive:     .asciiz "\nYour Digital Pet is alive! Current status:\n"
 initStatusDead:      .asciiz "Error, energy level less than or equal 0. Your pet is dead :(  "
 goodbyeMsg:          .asciiz "Saving session... goodbye! Thanks for playing."
 energyDepleteMsg:    .asciiz "Time +1s... Natural energy depletion!\n"
@@ -29,9 +29,9 @@ multiplied:          .asciiz "x"
 close_paren: 	     .asciiz ").\n"
 
 # --- Prompts ---
-edrPrompt: .asciiz "\nEnter Natural Energy Depletion Rate (EDR) [Default: 1]: "
-melPrompt: .asciiz "\nEnter Maximum Energy Level (MEL) [Default: 15]: "
-ielPrompt: .asciiz "\nEnter Initial Energy Level (IEL) [Default: 5]: "
+edrPrompt: .asciiz "Enter Natural Energy Depletion Rate (EDR) [Default: 1]: "
+melPrompt: .asciiz "Enter Maximum Energy Level (MEL) [Default: 15]: "
+ielPrompt: .asciiz "Enter Initial Energy Level (IEL) [Default: 5]: "
 gameCommandPrompt: .asciiz "\nEnter a command (F, E, P, I, R, Q) > "
 energyActionPrompt: .asciiz "Press 'R' to reset your pet to its initial energy level, or 'Q' to quit the game.:"
 
@@ -105,8 +105,8 @@ main:
     
 gameLoop:
     jal checkEnergyLevel
-   # jal healthBar
-   # jal displayEnergyStatus
+    jal healthBar
+    jal displayEnergyStatus
     jal getSysTime
     sw $v0, initial_time 
     la   $a0, gameCommandPrompt
