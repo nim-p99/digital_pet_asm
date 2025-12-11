@@ -513,11 +513,37 @@ pet:
   la $a0, fullstop
   li $v0, 4
   syscall
+  
+  # Energy increased by 2*n
+  li $t6, 2
+  mul $t7, $t5, $t6
+  
+  la $a0, energy_inc_msg
+  jal printString
+  move $a0, $t7
+  jal printInt
+   
+  la $a0, units_paren_msg
+  jal printString
+  
+  li $a0, 2
+  jal printInt
+  la $a0, multiplied
+  jal printString
+  
+  move $a0, $t5
+  jal printInt
+  la $a0, close_paren
+  jal printString
 
   #Increase energy
   move $a0, $t5   # a0 = count (n feed actions)
   li   $a1, 2     # a1 = +2 energy per pet
   jal  increase_energy
+  
+  # Print updated bar for energy
+  jal healthBar
+  jal displayEnergyStatus
   
   # reallocate stack and return
   lw $ra, 0($sp)
@@ -529,7 +555,7 @@ ignore:
   addi $sp, $sp, -4
   sw $ra, 0($sp)
 
-  # print ignore message
+  # print ignore message - command recognised
   la $a0, ignoreMsg
   li $v0, 4
   syscall
@@ -538,14 +564,40 @@ ignore:
   li $v0, 1
   syscall
 
-  la $a0, ielUnits
+  la $a0, fullstop
   li $v0, 4
   syscall
+  
+  # Energy decreased by 3*n
+  li, $t6, 3
+  mul $t7, $t5, $t6
+  
+  la $a0, energy_dec_msg
+  jal printString
+  move $a0, $t7
+  jal printInt
+  
+  la $a0, units_paren_msg
+  jal printString
+  
+  li $a0, 3
+  jal printInt
+  la $a0, multiplied
+  jal printString
+  
+  move $a0, $t5
+  jal printInt
+  la $a0, close_paren
+  jal printString 
 
   #Decrease Energy
   move $a0, $t5   # a0 = count (n feed actions)
   li   $a1, -3     # a1 = -3 energy per ignore
   jal  increase_energy
+  
+  # Print updated bar for energy
+  jal healthBar
+  jal displayEnergyStatus
   
   # reallocate stack and return
   lw $ra, 0($sp)
