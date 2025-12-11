@@ -9,13 +9,14 @@ setParamMsg:         .asciiz "Please set parameters (press Enter for default): \
 successMsg:          .asciiz "\nParameters set successfully!\n"
 initStatusAlive:     .asciiz "Your Digital Pet is alive! Current status:\n"
 initStatusDead:      .asciiz "Error, energy level less than or equal 0. Your pet is dead :(  "
-goodbyeMsg:          .asciiz "Goodbye! Thanks for playing.\n"
+goodbyeMsg:          .asciiz "Saving session... goodbye! Thanks for playing."
 energyDepleteMsg:    .asciiz "Time +1s... Natural energy depletion!\n"
 maxEnergyErrMsg:     .asciiz "Error, maximum energy level reached! Capped to the Max."
-feedMsg:             .asciiz "Command recognised: Feed "
-entertainMsg:        .asciiz "Command recognised: Entertain "
-petMsg:              .asciiz "Command recognised: Pet "
-ignoreMsg:           .asciiz "Command recognised: Ignore "
+feedMsg:             .asciiz "\nCommand recognised: Feed "
+entertainMsg:        .asciiz "\nCommand recognised: Entertain "
+petMsg:              .asciiz "\nCommand recognised: Pet "
+ignoreMsg:           .asciiz "\nCommand recognised: Ignore "
+quitMsg:             .asciiz "\nCommand recognised: Quit.\n"
 depleteString1:      .asciiz "time +"
 depleteString2:      .asciiz "s ... natural energy depletion!\n"
 death_message1:      .asciiz "Error, energy level equal or less than 0. Your pet is dead :(  \n"
@@ -167,7 +168,6 @@ checkTimeDone:
 
 
 deplete:
-  #TODO: implement deplete function
   addi $sp, $sp, -4
   sw $ra, 0($sp)
 
@@ -177,30 +177,34 @@ deplete:
   div $t0, $t1 
   mflo $t2 
   
-  # print how many seconds 
-  la $a0, depleteString1
-  jal printString
-  
-  li $v0, 1 
-  add $a0, $t2, $0 
-  syscall 
+  li $t3, 0 # loop counter
 
-  la $a0, depleteString2
+depleteLoop:
+  beq $t3, $t2, depleteDone
+  
+  # print Time +1s... etc
+  la $a0, energyDepleteMsg
   jal printString
 
   # deplete currentEnergy 
-  lw $t3, currentEnergy
+  lw $t4, currentEnergy
+  addi $t4, $t4, -1
   # If result will be negative --> set to zero 
-  bgt $t2, $t3, setZero 
-  sub $t3, $t3, $t2 
-  sw $t3, currentEnergy
-  b depleteDone
+  bltz $t4, setZero
+  sw $t4, currentEnergy
+  j afterDecr
 
 setZero:
-  lw $t3, currentEnergy
-  add $t3, $0, $0 
-  sw $t3, currentEnergy
+  lw $t4, currentEnergy
+  add $t4, $0, $0 
+  sw $t4, currentEnergy
 
+afterDecr:
+  jal healthBar
+  jal displayEnergyStatus
+  addi $t3, $t3, 1
+  j depleteLoop
+  
 depleteDone:
   lw $ra, 0($sp)
   addi $sp, $sp, 4
@@ -323,6 +327,8 @@ quit:
   # TODO:- print stats (feedCount etc.)
 
   # print quit message
+  la $a0, quitMsg
+  jal printString
   la $a0, goodbyeMsg
   jal printString
   li $v0, 10
@@ -436,6 +442,8 @@ feed:
   # Print updated bar for energy
   jal healthBar
   jal displayEnergyStatus
+  la $a0, newline
+  jal printString
   
   # reallocate stack and return
   lw $ra, 0($sp)
