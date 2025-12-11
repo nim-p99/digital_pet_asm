@@ -698,8 +698,9 @@ ignoreCausedDeath:
 # Behavior: adds (inc * count) to currentEnergy by looping count times.
 #----------------------------------------------------------------
 increase_energy:
-    addi $sp, $sp, -4
-    sw   $ra, 0($sp)
+    addi $sp, $sp, -8
+    sw   $ra, 4($sp)
+    sw $t5, 0($sp)
     move $t5, $a0    # t5 = loop counter from action
     move $t1, $a1    # t1 = increment per iteration
 
@@ -728,8 +729,9 @@ ie_set_zero:
     sw $t0, currentEnergy
 
 ie_done:
-    lw   $ra, 0($sp)
-    addi $sp, $sp, 4
+    lw $t5, 0($sp)
+    lw   $ra, 4($sp)
+    addi $sp, $sp, 8
     jr   $ra
 
 # ==============================================================
