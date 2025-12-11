@@ -11,7 +11,7 @@ initStatusAlive:     .asciiz "\nYour Digital Pet is alive! Current status:\n"
 initStatusDead:      .asciiz "Error, energy level less than or equal 0. Your pet is dead :(  "
 goodbyeMsg:          .asciiz "Saving session... goodbye! Thanks for playing."
 energyDepleteMsg:    .asciiz "Time +1s... Natural energy depletion!\n"
-maxEnergyErrMsg:     .asciiz "Error, maximum energy level reached! Capped to the Max."
+maxEnergyErrMsg:     .asciiz "Error, maximum energy level reached! Capped to the Max.\n"
 feedMsg:             .asciiz "\nCommand recognised: Feed "
 entertainMsg:        .asciiz "\nCommand recognised: Entertain "
 petMsg:              .asciiz "\nCommand recognised: Pet "
@@ -450,6 +450,16 @@ feed:
   li $v0, 4
   syscall 
   
+  #Updating Current energy
+  move $a0, $t5   # a0 = count (n feed actions)
+  li   $a1, 1     # a1 = per-pet value (e.g., +1 energy per feed)
+  jal  increase_energy
+  
+  # Detect max cap and print correct output
+  lw $t0, currentEnergy
+  lw $t1, MEL
+  beq $t0, $t1, feedMaxCap # if capped skip energy increase msg
+  
   # Energy increased by n units
   la $a0, energy_inc_msg
   jal printString
@@ -460,11 +470,13 @@ feed:
   la $a0, units_only_msg
   jal printString
 
-  #Updating Current energy
-  move $a0, $t5   # a0 = count (n feed actions)
-  li   $a1, 1     # a1 = per-pet value (e.g., +1 energy per feed)
-  jal  increase_energy
+  j feedPrintBar
   
+feedMaxCap:
+  la $a0, maxEnergyErrMsg
+  jal printString
+  
+feedPrintBar:
   # Print updated bar for energy
   jal healthBar
   jal displayEnergyStatus
@@ -494,6 +506,16 @@ entertain:
   li $v0, 4
   syscall
   
+  #Updating Current energy
+  move $a0, $t5   # a0 = count (n feed actions)
+  li   $a1, 2     # a1 = per-enterain value (e.g., +1 energy per feed)
+  jal  increase_energy
+  
+  # Detect max cap and print error
+  lw $t0, currentEnergy
+  lw $t1, MEL
+  beq $t0, $t1, entertainMaxCap
+  
   # Energy increased by 2*n units
   li $t6, 2
   mul $t7, $t5, $t6
@@ -515,15 +537,19 @@ entertain:
   jal printInt
   la $a0, close_paren
   jal printString
-  
-  #Updating Current energy
-  move $a0, $t5   # a0 = count (n feed actions)
-  li   $a1, 2     # a1 = per-enterain value (e.g., +1 energy per feed)
-  jal  increase_energy
+   
+  j entertainPrintBar
+
+entertainMaxCap:
+  la $a0, maxEnergyErrMsg
+  jal printString
   
   # Print updated bar for energy
+entertainPrintBar:
   jal healthBar
   jal displayEnergyStatus
+  la $a0, newline
+  jal printString
 
   # reallocate stack and return
   lw $ra, 0($sp)
@@ -548,6 +574,16 @@ pet:
   li $v0, 4
   syscall
   
+  #Increase energy
+  move $a0, $t5   # a0 = count (n feed actions)
+  li   $a1, 2     # a1 = +2 energy per pet
+  jal  increase_energy
+  
+  # Detect max cap and print error
+  lw $t0, currentEnergy
+  lw $t1, MEL
+  beq $t0, $t1, petMaxCap
+  
   # Energy increased by 2*n
   li $t6, 2
   mul $t7, $t5, $t6
@@ -569,15 +605,19 @@ pet:
   jal printInt
   la $a0, close_paren
   jal printString
-
-  #Increase energy
-  move $a0, $t5   # a0 = count (n feed actions)
-  li   $a1, 2     # a1 = +2 energy per pet
-  jal  increase_energy
+  
+  j petPrintBar
+  
+petMaxCap:
+  la $a0, maxEnergyErrMsg
+  jal printString
   
   # Print updated bar for energy
+petPrintBar:
   jal healthBar
   jal displayEnergyStatus
+  la $a0, newline
+  jal printString
   
   # reallocate stack and return
   lw $ra, 0($sp)
@@ -635,6 +675,8 @@ ignore:
   # Print updated bar for energy
   jal healthBar
   jal displayEnergyStatus
+  la $a0, newline
+  jal printString
   
   # reallocate stack and return
   lw $ra, 0($sp)
