@@ -22,7 +22,7 @@ death_message1:      .asciiz "Error, energy level equal or less than 0. Your pet
 death_message2:      .asciiz "*** your digital pet has died! ***\nWhat's your next move? (R,Q) >"
 energy_inc_msg:	     .asciiz "Energy increased by "
 energy_dec_msg:	     .asciiz "Energy decreased by "
-unit_paren_msg:      .asciiz " units ("
+units_paren_msg:      .asciiz " units ("
 units_only_msg:      .asciiz " units.\n"
 multiplied:          .asciiz "x"
 close_paren: 	     .asciiz ").\n"
@@ -445,7 +445,7 @@ entertain:
   addi $sp, $sp, -4
   sw $ra, 0($sp)
 
-  # print entertain message
+  # print entertain message - command recognised
   la $a0, entertainMsg
   li $v0, 4
   syscall
@@ -457,11 +457,37 @@ entertain:
   la $a0, ielUnits
   li $v0, 4
   syscall
-
+  
+  # Energy increased by 2*n units
+  li $t6, 2
+  mul $t7, $t5, $t6
+  
+  la $a0, energy_inc_msg
+  jal printString
+  move $a0, $t7
+  jal printInt
+  
+  la $a0, units_paren_msg
+  jal printString
+  
+  li $a0, 2
+  jal printInt
+  la $a0, multiplied
+  jal printString
+  
+  move $a0, $t5
+  jal printInt
+  la $a0, close_paren
+  jal printString
+  
   #Updating Current energy
   move $a0, $t5   # a0 = count (n feed actions)
   li   $a1, 2     # a1 = per-enterain value (e.g., +1 energy per feed)
   jal  increase_energy
+  
+  # Print updated bar for energy
+  jal healthBar
+  jal displayEnergyStatus
 
   # reallocate stack and return
   lw $ra, 0($sp)
