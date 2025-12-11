@@ -139,11 +139,11 @@ checkEnergyLevel:
   # if currentEnergy <= 0 --> pet is dead
   ble $t1, $0, petDead
   jr $ra
+  
 maxEnergy:
   add $t1, $t2, $0
   sw $t1, currentEnergy
   jr $ra 
-
 
 checkTime:
   addi $sp, $sp, -4
@@ -168,10 +168,11 @@ checkTimeDone:
 
 
 deplete:
-  addi $sp, $sp, -12
-  sw $ra, 8($sp)
-  sw $s0, 4($sp)
-  sw $s1, 0($sp)
+  addi $sp, $sp, -16
+  sw $ra, 12($sp)
+  sw $s0, 8($sp)
+  sw $s1, 4($sp)
+  sw $s2, 0($sp)
 
   # calculates how many seconds elapsed 
   lw $t0, elapsed_time
@@ -179,7 +180,7 @@ deplete:
   div $t0, $t1 
   mflo $s1  # value needs to be preserved 
   
-  li $s0, 0 # loop counter - need to be preserved
+  li $s0, 0 # loop counter - value needs to be preserved
 
 depleteLoop:
   beq $s0, $s1, depleteDone
@@ -190,7 +191,8 @@ depleteLoop:
 
   # deplete currentEnergy 
   lw $t3, currentEnergy
-  addi $t3, $t3, -1
+  lw $s2, EDR
+  sub $t3, $t3, $s2 # subtract according to EDR entered by user
   # If result will be negative --> set to zero 
   bltz $t3, setZero
   sw $t3, currentEnergy
@@ -213,10 +215,11 @@ afterDecr:
 depleteDone:
   jal getSysTime
   sw $v0, initial_time
-  lw $s1, 0($sp)
-  lw $s0, 4($sp)
-  lw $ra, 8($sp)
-  addi $sp, $sp, 12
+  lw $s2, 0($sp)
+  lw $s1, 4($sp)
+  lw $s0, 8($sp)
+  lw $ra, 12($sp)
+  addi $sp, $sp, 16
   jr $ra
 
 
