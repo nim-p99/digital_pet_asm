@@ -10,7 +10,7 @@ successMsg:          .asciiz "\nParameters set successfully!\n"
 initStatusAlive:     .asciiz "Your Digital Pet is alive! Current status:\n"
 initStatusDead:      .asciiz "Error, energy level less than or equal 0. Your pet is dead :(  "
 goodbyeMsg:          .asciiz "Goodbye! Thanks for playing.\n"
-energyDepleteMsg:    .asciiz "Time +1s... Natural energy depletion!"
+energyDepleteMsg:    .asciiz "Time +1s... Natural energy depletion!\n"
 maxEnergyErrMsg:     .asciiz "Error, maximum energy level reached! Capped to the Max."
 feedMsg:             .asciiz "Command recognised: Feed "
 entertainMsg:        .asciiz "Command recognised: Entertain "
@@ -20,7 +20,12 @@ depleteString1:      .asciiz "time +"
 depleteString2:      .asciiz "s ... natural energy depletion!\n"
 death_message1:      .asciiz "Error, energy level equal or less than 0. Your pet is dead :(  \n"
 death_message2:      .asciiz "*** your digital pet has died! ***\nWhat's your next move? (R,Q) >"
-
+energy_inc_msg:	     .asciiz "Energy increased by "
+energy_dec_msg:	     .asciiz "Energy decreased by "
+unit_paren_msg:      .asciiz " units ("
+units_only_msg:      .asciiz " units.\n"
+multiplied:          .asciiz "x"
+close_paren: 	     .asciiz ").\n"
 
 # --- Prompts ---
 edrPrompt: .asciiz "\nEnter Natural Energy Depletion Rate (EDR) [Default: 1]: "
@@ -58,7 +63,7 @@ ielUnits:   .asciiz " units\n"
 
 
 # HAVENT GROUPED THE BELOW CONSTANTS INTO NICE FORMATTED SCETIONS YET
-energyLabel:     .asciiz "Energy: "
+energyLabel:     .asciiz " Energy: "
 slashSymbol:     .asciiz "/"
 barLeftBracket:  .asciiz "["
 barRightBracket: .asciiz "]"
@@ -398,7 +403,7 @@ feed:
   addi $sp, $sp, -4
   sw $ra, 0($sp)
 
-  # print feed message 
+  # print feed message - command recognised
   la $a0, feedMsg
   li $v0, 4
   syscall
@@ -409,13 +414,26 @@ feed:
 
   la $a0, ielUnits
   li $v0, 4
-  syscall
+  syscall 
+  
+  # Energy increased by n units
+  la $a0, energy_inc_msg
+  jal printString
+  
+  move $a0, $t5
+  jal printInt
+  
+  la $a0, units_only_msg
+  jal printString
 
   #Updating Current energy
   move $a0, $t5   # a0 = count (n feed actions)
   li   $a1, 1     # a1 = per-pet value (e.g., +1 energy per feed)
   jal  increase_energy
   
+  # Print updated bar for energy
+  jal healthBar
+  jal displayEnergyStatus
   
   # reallocate stack and return
   lw $ra, 0($sp)
