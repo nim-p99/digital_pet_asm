@@ -199,6 +199,8 @@ setZero:
   sw $t4, currentEnergy
 
 afterDecr:
+  jal healthBar
+  jal displayEnergyStatus
   addi $t3, $t3, 1
   j depleteLoop
   
