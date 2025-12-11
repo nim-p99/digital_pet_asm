@@ -75,6 +75,8 @@ spaceStr:  .asciiz " "
 
 newline:   .asciiz "\n "
 
+fullstop:  .asciiz ".\n"
+
 
 feedCount: .word 0
 petCount: .word 0
@@ -412,7 +414,7 @@ feed:
   li $v0, 1
   syscall
 
-  la $a0, ielUnits
+  la $a0, fullstop
   li $v0, 4
   syscall 
   
@@ -454,7 +456,7 @@ entertain:
   li $v0, 1
   syscall
 
-  la $a0, ielUnits
+  la $a0, fullstop
   li $v0, 4
   syscall
   
@@ -499,7 +501,7 @@ pet:
   addi $sp, $sp, -4
   sw $ra, 0($sp)
 
-  # print pet message
+  # print pet message - Command recognised
   la $a0, petMsg
   li $v0, 4
   syscall
@@ -508,7 +510,7 @@ pet:
   li $v0, 1
   syscall
 
-  la $a0, ielUnits
+  la $a0, fullstop
   li $v0, 4
   syscall
 
