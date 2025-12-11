@@ -20,7 +20,7 @@ quitMsg:             .asciiz "\nCommand recognised: Quit.\n"
 depleteString1:      .asciiz "time +"
 depleteString2:      .asciiz "s ... natural energy depletion!\n"
 death_message1:      .asciiz "Error, energy level equal or less than 0. Your pet is dead :(  \n"
-death_message2:      .asciiz "*** your digital pet has died! ***\nWhat's your next move? (R,Q) >"
+death_message2:      .asciiz "*** Your Digital Pet has died! ***\n\nWhat's your next move? (R,Q) >"
 energy_inc_msg:	     .asciiz "Energy increased by "
 energy_dec_msg:	     .asciiz "Energy decreased by "
 units_paren_msg:      .asciiz " units ("
@@ -84,6 +84,8 @@ petCount: .word 0
 ignoreCount: .word 0
 entertainCount: .word 0
 resetCount: .word 0
+depleteFlag: .word 0 
+petDeadFlag: .word 0
 # THINK ABOVE LOGIC COULD BE IF USER INPUT = "{SPECIFIC LETTER}" THEN DO A BRANCH TO BASICALLY ADD ONE TO WHICHEVER COMMAND INPUT CORRESPONDED TO 
 
 # time related 
@@ -105,8 +107,13 @@ main:
     
 gameLoop:
     jal checkEnergyLevel
+    lw $t0, depleteFlag   #check if depletion alredy printed health bar
+    bne $t0, $0, skipPrint 
     jal healthBar
     jal displayEnergyStatus
+skipPrint:
+    li $t0,0    # reset flag back
+    sw $t0, depleteFlag
     jal getSysTime
     sw $v0, initial_time 
     la   $a0, gameCommandPrompt
@@ -116,6 +123,7 @@ gameLoop:
     jal  readUserInput
     jal  stripWhiteSpace
     jal processUserCommand
+    jal checkEnergyLevel
     jal getSysTime
     sw $v0, end_time
     jal checkTime
@@ -154,11 +162,17 @@ checkTime:
   lw $t2, time_interval
   sub $t3, $t1, $t0
   sw $t3, elapsed_time
+  # if pet is dead, skip depletion
+  lw $t4, petDeadFlag
+  bne $t4, $0, checkTimeDone
   # if elapsed time > time interval --> deplete 
   bgt $t3, $t2, handleDeplete
   b checkTimeDone
 
 handleDeplete:
+  # update flag to avoid duplicate print of energy bar from the game loop after deplete_loop finishes
+  li $t0,1
+  sw $t0, depleteFlag 
   jal deplete
 
 checkTimeDone:
@@ -615,6 +629,9 @@ ignore:
   li   $a1, -3     # a1 = -3 energy per ignore
   jal  increase_energy
   
+  # Check if pet died due to this ignore
+  lw $t0, currentEnergy
+  blez $t0, ignoreCausedDeath
   # Print updated bar for energy
   jal healthBar
   jal displayEnergyStatus
@@ -623,7 +640,13 @@ ignore:
   lw $ra, 0($sp)
   addi $sp, $sp, 4
   jr   $ra
+  
+ignoreCausedDeath:
+  jal petDead
 
+  lw $ra, 0($sp)
+  addi $sp, $sp, 4
+  jr   $ra
 
 #----------------------------------------------------------------
 # increase_energy
@@ -926,15 +949,20 @@ checkEnergyStatus:
     jr   $ra                  # Return to caller
  
 petDead:
+    #mark pet as dead
+    li $t0, 1
+    sw $t0,petDeadFlag
     # set currentEnergy to 0 
     lw $t1, currentEnergy
     add $t1, $0, $0 
     sw $t1, currentEnergy
     # print death message and healthBar
     la $a0, death_message1
-    jal  printString 
+    jal printString 
     jal healthBar
+    jal displayEnergyStatus
     la $a0, death_message2
+    jal printString
     #TODO: give option to enter R or Q here 
     j quit
 
