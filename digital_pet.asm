@@ -17,6 +17,8 @@ entertainMsg:        .asciiz "\nCommand recognised: Entertain "
 petMsg:              .asciiz "\nCommand recognised: Pet "
 ignoreMsg:           .asciiz "\nCommand recognised: Ignore "
 quitMsg:             .asciiz "\nCommand recognised: Quit.\n"
+resetMsg:            .asciiz "\nCommand recognised: Reset.\n"
+resetMsg2:           .asciiz "Digital Pet has been reset to its initial state!\n"
 depleteString1:      .asciiz "time +"
 depleteString2:      .asciiz "s ... natural energy depletion!\n"
 death_message1:      .asciiz "Error, energy level equal or less than 0. Your pet is dead :(  \n"
@@ -123,12 +125,13 @@ skipPrint:
     jal  readUserInput
     jal  stripWhiteSpace
     jal processUserCommand
-    jal checkEnergyLevel
     jal getSysTime
     sw $v0, end_time
     jal checkTime
     j gameLoop 
-
+    
+    la $t0, buffer
+    sb $0, 0($t0)
  # Exit programme cleanly
     li $v0, 10
     syscall
@@ -263,7 +266,7 @@ handleSingleCharCommand:
     # load 'R' into $t2 
     li $t2, 82
     # if 'R' --> call reset 
-    beq $t1, $t2, reset 
+    beq $t1, $t2, handleReset
     # load 'Q' into $t2 
     li $t2, 81
     # if 'Q' --> call quit
@@ -273,6 +276,9 @@ handleSingleCharCommand:
     jal printString
     b processUserCommandDone
 
+handleReset:
+   jal reset
+   b processUserCommandDone
 
 handleMultiCharCommand:
     # load 1st char into $t0
@@ -297,6 +303,9 @@ emptyCommandError:
 
 
 processUserCommandDone:
+# clear input buffer to avoid re-reading old commants
+    la $t0, buffer
+    sb $0, 0($t0)
 # --- Restore stack and return ---
     lw   $ra, 0($sp)
     addi $sp, $sp, 4
@@ -340,13 +349,43 @@ lengthDone:
 # -----------------------------------------------------------
 
 reset:
+  addi $sp, $sp, -4
+  sw $ra, 0($sp)
+  
   # increment resetCount 
   lw $t3, resetCount
   addi $t3, $t3, 1
   sw $t3, resetCount
   
-  # reset 
-  j main
+  # print reset command message
+  la $a0, resetMsg
+  jal printString
+  
+  la $a0, resetMsg2
+  jal printString
+  
+  # restore energy to IEL
+  lw $t1, IEL
+  sw $t1, currentEnergy
+  
+  # clear death flag
+  li $t2, 0
+  sw $t2, petDeadFlag
+  
+  # Reset timer so elapsed_time = 0
+  jal getSysTime
+  sw $v0, initial_time
+  
+  #print updated bar
+  jal healthBar
+  jal displayEnergyStatus
+  
+  li $t0, 1
+  sw $t0, depleteFlag
+  
+  lw $ra, 0($sp)
+  addi $sp, $sp, 4
+  jr $ra
 
 
 quit: 
