@@ -22,7 +22,7 @@ resetMsg2:           .asciiz "Digital Pet has been reset to its initial state!\n
 depleteString1:      .asciiz "time +"
 depleteString2:      .asciiz "s ... natural energy depletion!\n"
 death_message1:      .asciiz "Error, energy level equal or less than 0. Your pet is dead :(  \n"
-death_message2:      .asciiz "*** Your Digital Pet has died! ***\n\nWhat's your next move? (R,Q) >"
+death_message2:      .asciiz "*** Your Digital Pet has died! ***\n\nWhat's your next move? (R,Q) > "
 energy_inc_msg:	     .asciiz "Energy increased by "
 energy_dec_msg:	     .asciiz "Energy decreased by "
 units_paren_msg:      .asciiz " units ("
@@ -522,6 +522,8 @@ feedPrintBar:
   la $a0, newline
   jal printString
   
+  li $t0, 1
+  sw $t0, depleteFlag
   # reallocate stack and return
   lw $ra, 0($sp)
   addi $sp, $sp, 4
@@ -590,6 +592,8 @@ entertainPrintBar:
   la $a0, newline
   jal printString
 
+  li $t0, 1
+  sw $t0, depleteFlag
   # reallocate stack and return
   lw $ra, 0($sp)
   addi $sp, $sp, 4
@@ -658,6 +662,8 @@ petPrintBar:
   la $a0, newline
   jal printString
   
+  li $t0, 1
+  sw $t0, depleteFlag
   # reallocate stack and return
   lw $ra, 0($sp)
   addi $sp, $sp, 4
@@ -717,6 +723,8 @@ ignore:
   la $a0, newline
   jal printString
   
+  li $t0, 1
+  sw $t0, depleteFlag
   # reallocate stack and return
   lw $ra, 0($sp)
   addi $sp, $sp, 4
@@ -1046,8 +1054,26 @@ petDead:
     jal displayEnergyStatus
     la $a0, death_message2
     jal printString
-    #TODO: give option to enter R or Q here 
-    j quit
+
+deathInputLoop:
+    la $a0, buffer
+    li $a1, 20
+    jal readUserInput
+    jal stripWhiteSpace
+    
+    #process R/Q
+    jal processUserCommand
+    
+    # if reset
+    lw $t0, petDeadFlag
+    beq $t0, $0, deathExit
+    
+    # otherwise still dead 
+    j deathInputLoop
+
+deathExit:
+    j gameLoop
+    
 
 
 healthBar:
