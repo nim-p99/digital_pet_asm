@@ -7,25 +7,30 @@ welcomeMessage:      .asciiz "=== Digital Pet Simulator (MIPS32) ===\n"
 initMessage:         .asciiz "Initialising system...\n\n"
 setParamMsg:         .asciiz "Please set parameters (press Enter for default): \n"
 successMsg:          .asciiz "\nParameters set successfully!\n"
-initStatusAlive:     .asciiz "Your Digital Pet is alive! Current status:\n"
-initStatusDead:      .asciiz "Error, energy level less than or equal 0. Your pet is dead :(  "
-goodbyeMsg:          .asciiz "Goodbye! Thanks for playing.\n"
-energyDepleteMsg:    .asciiz "Time +1s... Natural energy depletion!"
-maxEnergyErrMsg:     .asciiz "Error, maximum energy level reached! Capped to the Max."
-feedMsg:             .asciiz "Command recognised: Feed "
-entertainMsg:        .asciiz "Command recognised: Entertain "
-petMsg:              .asciiz "Command recognised: Pet "
-ignoreMsg:           .asciiz "Command recognised: Ignore "
-depleteString1:      .asciiz "time +"
-depleteString2:      .asciiz "s ... natural energy depletion!\n"
+initStatusAlive:     .asciiz "\nYour Digital Pet is alive! Current status:\n"
+goodbyeMsg:          .asciiz "Saving session... goodbye! Thanks for playing."
+energyDepleteMsg:    .asciiz "Time +1s... Natural energy depletion!\n"
+maxEnergyErrMsg:     .asciiz "Error, maximum energy level reached! Capped to the Max.\n"
+feedMsg:             .asciiz "\nCommand recognised: Feed "
+entertainMsg:        .asciiz "\nCommand recognised: Entertain "
+petMsg:              .asciiz "\nCommand recognised: Pet "
+ignoreMsg:           .asciiz "\nCommand recognised: Ignore "
+quitMsg:             .asciiz "\nCommand recognised: Quit.\n"
+resetMsg:            .asciiz "\nCommand recognised: Reset.\n"
+resetMsg2:           .asciiz "Digital Pet has been reset to its initial state!\n"
 death_message1:      .asciiz "Error, energy level equal or less than 0. Your pet is dead :(  \n"
-death_message2:      .asciiz "*** your digital pet has died! ***\nWhat's your next move? (R,Q) >"
-
+death_message2:      .asciiz "*** Your Digital Pet has died! ***\n\nWhat's your next move? (R,Q) > "
+energy_inc_msg:	     .asciiz "Energy increased by "
+energy_dec_msg:	     .asciiz "Energy decreased by "
+units_paren_msg:      .asciiz " units ("
+units_only_msg:      .asciiz " units.\n"
+multiplied:          .asciiz "x"
+close_paren: 	     .asciiz ").\n"
 
 # --- Prompts ---
-edrPrompt: .asciiz "\nEnter Natural Energy Depletion Rate (EDR) [Default: 1]: "
-melPrompt: .asciiz "\nEnter Maximum Energy Level (MEL) [Default: 15]: "
-ielPrompt: .asciiz "\nEnter Initial Energy Level (IEL) [Default: 5]: "
+edrPrompt: .asciiz "Enter Natural Energy Depletion Rate (EDR) [Default: 1]: "
+melPrompt: .asciiz "Enter Maximum Energy Level (MEL) [Default: 15]: "
+ielPrompt: .asciiz "Enter Initial Energy Level (IEL) [Default: 5]: "
 gameCommandPrompt: .asciiz "\nEnter a command (F, E, P, I, R, Q) > "
 energyActionPrompt: .asciiz "Press 'R' to reset your pet to its initial energy level, or 'Q' to quit the game.:"
 
@@ -58,7 +63,7 @@ ielUnits:   .asciiz " units\n"
 
 
 # HAVENT GROUPED THE BELOW CONSTANTS INTO NICE FORMATTED SCETIONS YET
-energyLabel:     .asciiz "Energy: "
+energyLabel:     .asciiz " Energy: "
 slashSymbol:     .asciiz "/"
 barLeftBracket:  .asciiz "["
 barRightBracket: .asciiz "]"
@@ -68,7 +73,9 @@ BAR_WIDTH: .word 20
 
 spaceStr:  .asciiz " "
 
-newline:   .asciiz "\n "
+newline:   .asciiz "\n"
+
+fullstop:  .asciiz ".\n"
 
 
 feedCount: .word 0
@@ -76,6 +83,8 @@ petCount: .word 0
 ignoreCount: .word 0
 entertainCount: .word 0
 resetCount: .word 0
+depleteFlag: .word 0 
+petDeadFlag: .word 0
 # THINK ABOVE LOGIC COULD BE IF USER INPUT = "{SPECIFIC LETTER}" THEN DO A BRANCH TO BASICALLY ADD ONE TO WHICHEVER COMMAND INPUT CORRESPONDED TO 
 
 # time related 
@@ -97,8 +106,13 @@ main:
     
 gameLoop:
     jal checkEnergyLevel
+    lw $t0, depleteFlag   #check if depletion alredy printed health bar
+    bne $t0, $0, skipPrint 
     jal healthBar
     jal displayEnergyStatus
+skipPrint:
+    li $t0,0    # reset flag back
+    sw $t0, depleteFlag
     jal getSysTime
     sw $v0, initial_time 
     la   $a0, gameCommandPrompt
@@ -112,7 +126,9 @@ gameLoop:
     sw $v0, end_time
     jal checkTime
     j gameLoop 
-
+    
+    la $t0, buffer
+    sb $0, 0($t0)
  # Exit programme cleanly
     li $v0, 10
     syscall
@@ -131,11 +147,11 @@ checkEnergyLevel:
   # if currentEnergy <= 0 --> pet is dead
   ble $t1, $0, petDead
   jr $ra
+  
 maxEnergy:
   add $t1, $t2, $0
   sw $t1, currentEnergy
   jr $ra 
-
 
 checkTime:
   addi $sp, $sp, -4
@@ -146,11 +162,17 @@ checkTime:
   lw $t2, time_interval
   sub $t3, $t1, $t0
   sw $t3, elapsed_time
+  # if pet is dead, skip depletion
+  lw $t4, petDeadFlag
+  bne $t4, $0, checkTimeDone
   # if elapsed time > time interval --> deplete 
   bgt $t3, $t2, handleDeplete
   b checkTimeDone
 
 handleDeplete:
+  # update flag to avoid duplicate print of energy bar from the game loop after deplete_loop finishes
+  li $t0,1
+  sw $t0, depleteFlag 
   jal deplete
 
 checkTimeDone:
@@ -160,43 +182,58 @@ checkTimeDone:
 
 
 deplete:
-  #TODO: implement deplete function
-  addi $sp, $sp, -4
-  sw $ra, 0($sp)
+  addi $sp, $sp, -16
+  sw $ra, 12($sp)
+  sw $s0, 8($sp)
+  sw $s1, 4($sp)
+  sw $s2, 0($sp)
 
   # calculates how many seconds elapsed 
   lw $t0, elapsed_time
   lw $t1, time_interval
   div $t0, $t1 
-  mflo $t2 
+  mflo $s1  # value needs to be preserved 
   
-  # print how many seconds 
-  la $a0, depleteString1
-  jal printString
-  
-  li $v0, 1 
-  add $a0, $t2, $0 
-  syscall 
+  li $s0, 0 # loop counter - value needs to be preserved
 
-  la $a0, depleteString2
+depleteLoop:
+  beq $s0, $s1, depleteDone
+  
+  # print Time +1s... etc
+  la $a0, energyDepleteMsg
   jal printString
 
   # deplete currentEnergy 
   lw $t3, currentEnergy
+  lw $s2, EDR
+  sub $t3, $t3, $s2 # subtract according to EDR entered by user
   # If result will be negative --> set to zero 
-  bgt $t2, $t3, setZero 
-  sub $t3, $t3, $t2 
+  bltz $t3, setZero
   sw $t3, currentEnergy
-  b depleteDone
+  j afterDecr
 
 setZero:
-  lw $t3, currentEnergy
-  add $t3, $0, $0 
+  li $t3, 0
   sw $t3, currentEnergy
 
+afterDecr:
+  #if energy hits zero stop
+  lw $t3, currentEnergy
+  beqz $t3, depleteDone
+  #otherwise print bar and continue
+  jal healthBar
+  jal displayEnergyStatus
+  addi $s0, $s0, 1
+  j depleteLoop
+  
 depleteDone:
-  lw $ra, 0($sp)
-  addi $sp, $sp, 4
+  jal getSysTime
+  sw $v0, initial_time
+  lw $s2, 0($sp)
+  lw $s1, 4($sp)
+  lw $s0, 8($sp)
+  lw $ra, 12($sp)
+  addi $sp, $sp, 16
   jr $ra
 
 
@@ -226,7 +263,7 @@ handleSingleCharCommand:
     # load 'R' into $t2 
     li $t2, 82
     # if 'R' --> call reset 
-    beq $t1, $t2, reset 
+    beq $t1, $t2, handleReset
     # load 'Q' into $t2 
     li $t2, 81
     # if 'Q' --> call quit
@@ -236,6 +273,9 @@ handleSingleCharCommand:
     jal printString
     b processUserCommandDone
 
+handleReset:
+   jal reset
+   b processUserCommandDone
 
 handleMultiCharCommand:
     # load 1st char into $t0
@@ -260,6 +300,9 @@ emptyCommandError:
 
 
 processUserCommandDone:
+# clear input buffer to avoid re-reading old commants
+    la $t0, buffer
+    sb $0, 0($t0)
 # --- Restore stack and return ---
     lw   $ra, 0($sp)
     addi $sp, $sp, 4
@@ -303,19 +346,51 @@ lengthDone:
 # -----------------------------------------------------------
 
 reset:
+  addi $sp, $sp, -4
+  sw $ra, 0($sp)
+  
   # increment resetCount 
   lw $t3, resetCount
   addi $t3, $t3, 1
   sw $t3, resetCount
   
-  # reset 
-  j main
+  # print reset command message
+  la $a0, resetMsg
+  jal printString
+  
+  la $a0, resetMsg2
+  jal printString
+  
+  # restore energy to IEL
+  lw $t1, IEL
+  sw $t1, currentEnergy
+  
+  # clear death flag
+  li $t2, 0
+  sw $t2, petDeadFlag
+  
+  # Reset timer so elapsed_time = 0
+  jal getSysTime
+  sw $v0, initial_time
+  
+  #print updated bar
+  jal healthBar
+  jal displayEnergyStatus
+  
+  li $t0, 1
+  sw $t0, depleteFlag
+  
+  lw $ra, 0($sp)
+  addi $sp, $sp, 4
+  jr $ra
 
 
 quit: 
   # TODO:- print stats (feedCount etc.)
 
   # print quit message
+  la $a0, quitMsg
+  jal printString
   la $a0, goodbyeMsg
   jal printString
   li $v0, 10
@@ -398,7 +473,7 @@ feed:
   addi $sp, $sp, -4
   sw $ra, 0($sp)
 
-  # print feed message 
+  # print feed message - command recognised
   la $a0, feedMsg
   li $v0, 4
   syscall
@@ -407,16 +482,45 @@ feed:
   li $v0, 1
   syscall
 
-  la $a0, ielUnits
+  la $a0, fullstop
   li $v0, 4
-  syscall
-
+  syscall 
+  
   #Updating Current energy
   move $a0, $t5   # a0 = count (n feed actions)
   li   $a1, 1     # a1 = per-pet value (e.g., +1 energy per feed)
   jal  increase_energy
   
+  # Detect max cap and print correct output
+  lw $t0, currentEnergy
+  lw $t1, MEL
+  beq $t0, $t1, feedMaxCap # if capped skip energy increase msg
   
+  # Energy increased by n units
+  la $a0, energy_inc_msg
+  jal printString
+  
+  move $a0, $t5
+  jal printInt
+  
+  la $a0, units_only_msg
+  jal printString
+
+  j feedPrintBar
+  
+feedMaxCap:
+  la $a0, maxEnergyErrMsg
+  jal printString
+  
+feedPrintBar:
+  # Print updated bar for energy
+  jal healthBar
+  jal displayEnergyStatus
+  la $a0, newline
+  jal printString
+  
+  li $t0, 1
+  sw $t0, depleteFlag
   # reallocate stack and return
   lw $ra, 0($sp)
   addi $sp, $sp, 4
@@ -427,7 +531,7 @@ entertain:
   addi $sp, $sp, -4
   sw $ra, 0($sp)
 
-  # print entertain message
+  # print entertain message - command recognised
   la $a0, entertainMsg
   li $v0, 4
   syscall
@@ -436,15 +540,57 @@ entertain:
   li $v0, 1
   syscall
 
-  la $a0, ielUnits
+  la $a0, fullstop
   li $v0, 4
   syscall
-
+  
   #Updating Current energy
   move $a0, $t5   # a0 = count (n feed actions)
   li   $a1, 2     # a1 = per-enterain value (e.g., +1 energy per feed)
   jal  increase_energy
+  
+  # Detect max cap and print error
+  lw $t0, currentEnergy
+  lw $t1, MEL
+  beq $t0, $t1, entertainMaxCap
+  
+  # Energy increased by 2*n units
+  li $t6, 2
+  mul $t7, $t5, $t6
+  
+  la $a0, energy_inc_msg
+  jal printString
+  move $a0, $t7
+  jal printInt
+  
+  la $a0, units_paren_msg
+  jal printString
+  
+  li $a0, 2
+  jal printInt
+  la $a0, multiplied
+  jal printString
+  
+  move $a0, $t5
+  jal printInt
+  la $a0, close_paren
+  jal printString
+   
+  j entertainPrintBar
 
+entertainMaxCap:
+  la $a0, maxEnergyErrMsg
+  jal printString
+  
+  # Print updated bar for energy
+entertainPrintBar:
+  jal healthBar
+  jal displayEnergyStatus
+  la $a0, newline
+  jal printString
+
+  li $t0, 1
+  sw $t0, depleteFlag
   # reallocate stack and return
   lw $ra, 0($sp)
   addi $sp, $sp, 4
@@ -455,7 +601,7 @@ pet:
   addi $sp, $sp, -4
   sw $ra, 0($sp)
 
-  # print pet message
+  # print pet message - Command recognised
   la $a0, petMsg
   li $v0, 4
   syscall
@@ -464,15 +610,57 @@ pet:
   li $v0, 1
   syscall
 
-  la $a0, ielUnits
+  la $a0, fullstop
   li $v0, 4
   syscall
-
+  
   #Increase energy
   move $a0, $t5   # a0 = count (n feed actions)
   li   $a1, 2     # a1 = +2 energy per pet
   jal  increase_energy
   
+  # Detect max cap and print error
+  lw $t0, currentEnergy
+  lw $t1, MEL
+  beq $t0, $t1, petMaxCap
+  
+  # Energy increased by 2*n
+  li $t6, 2
+  mul $t7, $t5, $t6
+  
+  la $a0, energy_inc_msg
+  jal printString
+  move $a0, $t7
+  jal printInt
+   
+  la $a0, units_paren_msg
+  jal printString
+  
+  li $a0, 2
+  jal printInt
+  la $a0, multiplied
+  jal printString
+  
+  move $a0, $t5
+  jal printInt
+  la $a0, close_paren
+  jal printString
+  
+  j petPrintBar
+  
+petMaxCap:
+  la $a0, maxEnergyErrMsg
+  jal printString
+  
+  # Print updated bar for energy
+petPrintBar:
+  jal healthBar
+  jal displayEnergyStatus
+  la $a0, newline
+  jal printString
+  
+  li $t0, 1
+  sw $t0, depleteFlag
   # reallocate stack and return
   lw $ra, 0($sp)
   addi $sp, $sp, 4
@@ -483,7 +671,7 @@ ignore:
   addi $sp, $sp, -4
   sw $ra, 0($sp)
 
-  # print ignore message
+  # print ignore message - command recognised
   la $a0, ignoreMsg
   li $v0, 4
   syscall
@@ -492,20 +680,59 @@ ignore:
   li $v0, 1
   syscall
 
-  la $a0, ielUnits
+  la $a0, fullstop
   li $v0, 4
   syscall
+  
+  # Energy decreased by 3*n
+  li $t6, 3
+  mul $t7, $t5, $t6
+  
+  la $a0, energy_dec_msg
+  jal printString
+  move $a0, $t7
+  jal printInt
+  
+  la $a0, units_paren_msg
+  jal printString
+  
+  li $a0, 3
+  jal printInt
+  la $a0, multiplied
+  jal printString
+  
+  move $a0, $t5
+  jal printInt
+  la $a0, close_paren
+  jal printString 
 
   #Decrease Energy
   move $a0, $t5   # a0 = count (n feed actions)
   li   $a1, -3     # a1 = -3 energy per ignore
   jal  increase_energy
   
+  # Check if pet died due to this ignore
+  lw $t0, currentEnergy
+  blez $t0, ignoreCausedDeath
+  # Print updated bar for energy
+  jal healthBar
+  jal displayEnergyStatus
+  la $a0, newline
+  jal printString
+  
+  li $t0, 1
+  sw $t0, depleteFlag
   # reallocate stack and return
   lw $ra, 0($sp)
   addi $sp, $sp, 4
   jr   $ra
+  
+ignoreCausedDeath:
+  jal petDead
 
+  lw $ra, 0($sp)
+  addi $sp, $sp, 4
+  jr   $ra
 
 #----------------------------------------------------------------
 # increase_energy
@@ -515,8 +742,9 @@ ignore:
 # Behavior: adds (inc * count) to currentEnergy by looping count times.
 #----------------------------------------------------------------
 increase_energy:
-    addi $sp, $sp, -4
-    sw   $ra, 0($sp)
+    addi $sp, $sp, -8
+    sw   $ra, 4($sp)
+    sw $t5, 0($sp)
     move $t5, $a0    # t5 = loop counter from action
     move $t1, $a1    # t1 = increment per iteration
 
@@ -526,10 +754,28 @@ ie_loop:
     sw   $t0, currentEnergy
     addi $t5, $t5, -1
     bgtz $t5, ie_loop
+    
+    lw $t0, currentEnergy
+    #if <=0 -> set to 0
+    blez $t0, ie_set_zero
+    
+    #if > MEL -> set to MEL
+    lw $t1, MEL
+    ble $t0, $t1, ie_store_done
+    move $t0, $t1
+
+ie_store_done:
+    sw $t0, currentEnergy
+    j ie_done
+
+ie_set_zero:
+    li $t0, 0
+    sw $t0, currentEnergy
 
 ie_done:
-    lw   $ra, 0($sp)
-    addi $sp, $sp, 4
+    lw $t5, 0($sp)
+    lw   $ra, 4($sp)
+    addi $sp, $sp, 8
     jr   $ra
 
 # ==============================================================
@@ -791,17 +1037,40 @@ checkEnergyStatus:
     jr   $ra                  # Return to caller
  
 petDead:
+    #mark pet as dead
+    li $t0, 1
+    sw $t0,petDeadFlag
     # set currentEnergy to 0 
     lw $t1, currentEnergy
     add $t1, $0, $0 
     sw $t1, currentEnergy
     # print death message and healthBar
     la $a0, death_message1
-    jal  printString 
+    jal printString 
     jal healthBar
+    jal displayEnergyStatus
     la $a0, death_message2
-    #TODO: give option to enter R or Q here 
-    j quit
+    jal printString
+
+deathInputLoop:
+    la $a0, buffer
+    li $a1, 20
+    jal readUserInput
+    jal stripWhiteSpace
+    
+    #process R/Q
+    jal processUserCommand
+    
+    # if reset
+    lw $t0, petDeadFlag
+    beq $t0, $0, deathExit
+    
+    # otherwise still dead 
+    j deathInputLoop
+
+deathExit:
+    j gameLoop
+    
 
 
 healthBar:
@@ -816,7 +1085,7 @@ healthBar:
   sub $t3, $t1, $t0
 
   li $v0, 11
-  li $a0 91 #'['
+  li $a0, 91 #'['
   syscall
 block_loop:
   beq $t0, $t2, dash_loop
@@ -830,7 +1099,7 @@ dash_loop:
   li $v0, 11
   li $a0, 45 # '-'
   syscall
-  addi $t4, $t4 1
+  addi $t4, $t4, 1
   j dash_loop 
 end_health_bar:
   li $v0, 11
