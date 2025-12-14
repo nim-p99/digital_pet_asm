@@ -8,6 +8,8 @@ initMessage:         .asciiz "Initialising system...\n\n"
 setParamMsg:         .asciiz "Please set parameters (press Enter for default): \n"
 successMsg:          .asciiz "\nParameters set successfully!\n"
 initStatusAlive:     .asciiz "\nYour Digital Pet is alive! Current status:\n"
+initStatusAlive1:    .asciiz "\nYour Digital Pet, "
+initStatusAlive2:    .asciiz ", is alive! Current status:\n"
 goodbyeMsg:          .asciiz "Saving session... goodbye! Thanks for playing."
 energyDepleteMsg:    .asciiz "Time +1s... Natural energy depletion!\n"
 maxEnergyErrMsg:     .asciiz "Error, maximum energy level reached! Capped to the Max.\n"
@@ -18,8 +20,9 @@ ignoreMsg:           .asciiz "\nCommand recognised: Ignore "
 quitMsg:             .asciiz "\nCommand recognised: Quit.\n"
 resetMsg:            .asciiz "\nCommand recognised: Reset.\n"
 resetMsg2:           .asciiz "Digital Pet has been reset to its initial state!\n"
-death_message1:      .asciiz "Error, energy level equal or less than 0. Your pet is dead :(  \n"
-death_message2:      .asciiz "*** Your Digital Pet has died! ***\n\nWhat's your next move? (R,Q) > "
+death_message1:      .asciiz "Error, energy level equal or less than 0. "
+death_message2:      .asciiz "is dead :(  \n"
+death_message3:      .asciiz "*** Your Digital Pet has died! ***\n\nWhat's your next move? (R,Q) > "
 energy_inc_msg:	     .asciiz "Energy increased by "
 energy_dec_msg:	     .asciiz "Energy decreased by "
 units_paren_msg:      .asciiz " units ("
@@ -27,10 +30,14 @@ units_only_msg:      .asciiz " units.\n"
 multiplied:          .asciiz "x"
 close_paren: 	     .asciiz ").\n"
 
+
+
 # --- Prompts ---
+namePrompt: .asciiz "Please enter a name for your Digital Pet: "
 edrPrompt: .asciiz "Enter Natural Energy Depletion Rate (EDR) [Default: 1]: "
 melPrompt: .asciiz "Enter Maximum Energy Level (MEL) [Default: 15]: "
 ielPrompt: .asciiz "Enter Initial Energy Level (IEL) [Default: 5]: "
+petTypePrompt: .asciiz "Enter 'C' for CAT or 'D' for DOG: "
 gameCommandPrompt: .asciiz "\nEnter a command (F, E, P, I, R, Q) > "
 energyActionPrompt: .asciiz "Press 'R' to reset your pet to its initial energy level, or 'Q' to quit the game.:"
 
@@ -52,6 +59,20 @@ timer: .word 0
 last1: .word 0
 num1: .word 0
 num2: .word 0
+
+# --- Cat/ Dogs --- 
+petType: .word 1 #0 = Cat, 1 = Dog
+petName: .space 32
+
+catHappy: .asciiz "    /\\_____/\\\n   /  o   o  \\\n  ( ==  ^  == )\n   )         (\n  (           )\n ( (  )   (  ) )\n(__(__)___(__)__)\n"
+catDead: .asciiz "    /\\_____/\\\n   /  x   x  \\\n  ( ==  ^  == )\n   )         (\n  (           )\n ( (  )   (  ) )\n(__(__)___(__)__)\n"
+catSad: .asciiz "    /\\_____/\\\n   /  >   <  \\\n  ( ==  ^  == )\n   )         (\n  (           )\n ( (  )   (  ) )\n(__(__)___(__)__)\n"
+
+dogHappy: .asciiz "         __\n        /  \\\n       / ..|\\\n      (_\\  |_)\n      /  \\@'\n     /     \\\n _  /  `   |\n\\\\/  \\  | _\\\n \\   /_ || \\\\_\n  \\____)|_) \\_)\n"
+dogDead: .asciiz "         __\n        /  \\\n       / xx|\\\n      (_\\  |_)\n      /  \\@'\n     /     \\\n _  /  `   |\n\\\\/  \\  | _\\\n \\   /_ || \\\\_\n  \\____)|_) \\_)\n"
+dogSad: .asciiz "         __\n        /  \\\n       / ><|\\\n      (_\\  |_)\n      /  \\@'\n     /     \\\n _  /  `   |\n\\\\/  \\  | _\\\n \\   /_ || \\\\_\n  \\____)|_) \\_)\n"
+
+
 # --- Energy Values ---
 EDR: .word 1
 MEL: .word 15
@@ -356,7 +377,244 @@ lengthDone:
     addi $sp, $sp, 4
     jr   $ra
 
+# ----------------------------------------------------------
+setPetType:
+  # --- Stack frame setup ---
+  addi $sp, $sp, -4
+  sw   $ra, 0($sp)
 
+  jal processPetCommand
+
+  # --- Restore stack and return ---
+  lw   $ra, 0($sp)
+  addi $sp, $sp, 4
+  jr   $ra
+
+
+processPetCommand:
+    addi $sp, $sp, -4
+    sw   $ra, 0($sp)
+
+petPromptLoop:
+    la $a0, petTypePrompt
+    jal printString
+    la   $a0, buffer   # buffer address
+    li   $a1, 20     # max length
+    jal readUserInput
+    la $a0, buffer
+    jal stripWhiteSpace
+    jal getCommandLength
+
+    li $t0, 1
+    # command length = 1
+    beq $t0, $v0, handleSingleCharPetCommand
+    # command length > 1
+    bgt $v0, $t0, handleMultiCharPetCommand
+
+handleSingleCharPetCommand:
+    # load 1st char into $t1
+    lb $t1, 0($a0)
+    # load 'C' into $t2 
+    li $t2, 67
+    # if 'C' --> set as cat
+    beq $t1, $t2, setCat 
+    # load 'D' into $t2 
+    li $t2, 68
+    # if 'D' --> call quit
+    beq $t1, $t2, setDog
+    # neither --> error message + return 
+    la $a0, unrecognisedCmdMsg
+    jal printString
+    b petPromptLoop
+
+
+handleMultiCharPetCommand:
+    la $a0, unrecognisedCmdMsg
+    jal printString
+    b petPromptLoop
+
+
+setCat:
+  # sets petType to 0 
+    lw $t0,petType
+    add $t0, $0, $0 
+    sw $t0, petType
+  # clear input buffer to avoid re-reading old commants
+    la $t0, buffer
+    sb $0, 0($t0)
+  # --- Restore stack and return ---
+    lw   $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr   $ra
+
+
+setDog:
+  # sets petType to 1 
+    lw $t0, petType 
+    addi $t0, $0, 1 
+    sw $t0, petType 
+
+
+  # clear input buffer to avoid re-reading old commants
+    la $t0, buffer
+    sb $0, 0($t0)
+  # --- Restore stack and return ---
+    lw   $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr   $ra
+
+getPetName:
+  # --- Stack frame setup ---
+    addi $sp, $sp, -4
+    sw   $ra, 0($sp)
+
+    la $a0, namePrompt 
+    jal printString
+
+    # Read user input into the buffer
+    la $a0, buffer    # Buffer address
+    li $a1, 20        # Max length
+    jal readUserInput
+
+    la $a0, buffer
+    jal stripWhiteSpace
+
+    # Copy the cleaned name from the temporary buffer to the permanent petName storage
+    la $a0, petName   
+    la $a1, buffer    
+    li $a2, 32        
+    jal copyString   
+
+    # --- Restore stack and return ---
+    lw   $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr   $ra
+
+
+copyString:
+    # --- Stack frame setup ---
+    addi $sp, $sp, -4
+    sw   $ra, 0($sp)
+
+    move $t0, $a0    # $t0 = destination pointer
+    move $t1, $a1    # $t1 = source pointer
+    move $t2, $a2    # $t2 = counter
+
+copyLoop:
+    # Check if we've copied max bytes
+    beqz $t2, copyDone
+    # Load byte from source
+    lb $t3, 0($t1)
+    # Store byte to destination
+    sb $t3, 0($t0)
+    # Check for null terminator, which ends the copy
+    beqz $t3, copyDone
+    # Move pointers and decrement counter
+    addi $t0, $t0, 1
+    addi $t1, $t1, 1
+    addi $t2, $t2, -1
+    j copyLoop
+
+copyDone:
+    # Ensure destination is null-terminated even if source was too long
+    sb $zero, 0($t0) 
+    
+    # --- Restore stack and return ---
+    lw   $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr   $ra
+
+printPetName:
+    addi $sp, $sp, -4
+    sw   $ra, 0($sp)
+
+    la $a0, petName
+    jal printString
+    
+    la $a0, spaceStr
+    jal printString
+
+    lw   $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr   $ra
+
+
+printHappyPet:
+  # --- Stack frame setup ---
+  addi $sp, $sp, -4
+  sw   $ra, 0($sp)
+
+  lw $t0, petType            # t0 = value of pet (0 or 1)
+  # pet = 0 (cat), print cat.
+  beq $t0, $0, printHappyCat
+  # pet = 1 (dog), print dog.
+  la $a0, dogHappy
+  jal printString
+  j printHappyPetDone
+ 
+printHappyCat:
+  
+  la $a0, catHappy 
+  jal printString
+  
+
+printHappyPetDone:
+  # --- Restore stack and return ---
+    lw   $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr   $ra
+
+
+
+printSadPet:
+  # --- Stack frame setup ---
+  addi $sp, $sp, -4
+  sw   $ra, 0($sp)
+
+  lw $t0, petType            # t0 = value of pet (0 or 1)
+  # pet = 0 (cat), print cat.
+  beq $t0, $0, printSadCat
+  # pet = 1 (dog), print dog.
+  la $a0, dogSad 
+  jal printString
+  j printSadPetDone
+ 
+printSadCat:
+  
+  la $a0, catSad  
+  jal printString
+  
+
+printSadPetDone:
+  # --- Restore stack and return ---
+    lw   $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr   $ra
+
+printDeadPet:
+  # --- Stack frame setup ---
+  addi $sp, $sp, -4
+  sw   $ra, 0($sp)
+
+  lw $t0, petType            # t0 = value of pet (0 or 1)
+  # pet = 0 (cat), print cat.
+  beq $t0, $0, printDeadCat
+  # pet = 1 (dog), print dog.
+  la $a0, dogDead 
+  jal printString
+  j printDeadPetDone
+ 
+printDeadCat:
+  
+  la $a0, catDead 
+  jal printString
+  
+
+printDeadPetDone:
+  # --- Restore stack and return ---
+    lw   $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr   $ra
 # -----------------------------------------------------------
 
 reset:
@@ -553,10 +811,13 @@ feed:
   
   la $a0, units_only_msg
   jal printString
+ 
+  jal printHappyPet
 
   j feedPrintBar
   
 feedMaxCap:
+  jal printHappyPet 
   la $a0, maxEnergyErrMsg
   jal printString
   
@@ -623,10 +884,13 @@ entertain:
   jal printInt
   la $a0, close_paren
   jal printString
-   
+  
+  jal printHappyPet
+
   j entertainPrintBar
 
 entertainMaxCap:
+  jal printHappyPet
   la $a0, maxEnergyErrMsg
   jal printString
   
@@ -693,10 +957,13 @@ pet:
   jal printInt
   la $a0, close_paren
   jal printString
-  
+
+  jal printHappyPet
+
   j petPrintBar
   
 petMaxCap:
+  jal printHappyPet
   la $a0, maxEnergyErrMsg
   jal printString
   
@@ -762,6 +1029,9 @@ ignore:
   # Check if pet died due to this ignore
   lw $t0, currentEnergy
   blez $t0, ignoreCausedDeath
+
+  # print sad cat 
+  jal printSadPet
   # Print updated bar for energy
   jal healthBar
   jal displayEnergyStatus
@@ -900,9 +1170,20 @@ initParamsValid:
     la   $a0, successMsg
     jal  printString
     jal displayConfig
+
+    # Prompt user for cat or dog
+    jal setPetType
+
+    jal getPetName
+
+    jal printHappyPet
     jal checkEnergyStatus
-    la   $a0, initStatusAlive  # Load alive message
-    jal  printString  
+    la   $a0, initStatusAlive1  # Load alive message
+    jal  printString
+    jal printPetName
+    la $a0, initStatusAlive2
+    jal printString
+
 
     # Restore and return
     lw   $ra, 0($sp)
@@ -1095,9 +1376,13 @@ petDead:
     # print death message and healthBar
     la $a0, death_message1
     jal printString 
+    jal printPetName
+    la $a0, death_message2
+    jal printString
     jal healthBar
     jal displayEnergyStatus
-    la $a0, death_message2
+    jal printDeadPet
+    la $a0, death_message3 
     jal printString
 
 deathInputLoop:
@@ -1358,4 +1643,6 @@ strip_done:
     lw $ra, 8($sp)
     addi $sp, $sp, 12
     jr $ra
+    
+
     
