@@ -19,7 +19,8 @@ quitMsg:             .asciiz "\nCommand recognised: Quit.\n"
 resetMsg:            .asciiz "\nCommand recognised: Reset.\n"
 resetMsg2:           .asciiz "Digital Pet has been reset to its initial state!\n"
 death_message1:      .asciiz "Error, energy level equal or less than 0. Your pet is dead :(  \n"
-death_message2:      .asciiz "*** Your Digital Pet has died! ***\n\nWhat's your next move? (R,Q) > "
+death_message2:      .asciiz "*** Your Digital Pet has died! ***\n"
+death_message3:      .asciiz "\nWhat's your next move? (R,Q) > "
 energy_inc_msg:	     .asciiz "Energy increased by "
 energy_dec_msg:	     .asciiz "Energy decreased by "
 units_paren_msg:      .asciiz " units ("
@@ -1099,6 +1100,8 @@ petDead:
     jal displayEnergyStatus
     la $a0, death_message2
     jal printString
+    la $a0, death_message3
+    jal printString
 
 deathInputLoop:
     la $a0, buffer
@@ -1106,15 +1109,32 @@ deathInputLoop:
     jal readUserInput
     jal stripWhiteSpace
     
-    #process R/Q
-    jal processUserCommand
+    # Length must be exactly 1
+    jal getCommandLength
+    li $t0, 1
+    bne $v0, $t0, deathInvalid
     
-    # if reset
-    lw $t0, petDeadFlag
-    beq $t0, $0, deathExit
+    # check char
+    lb $t0, 0($a0)
     
-    # otherwise still dead 
+    li $t2, 82 # R
+    beq $t0, $t2, deathReset
+    
+    li $t2, 81 # Q
+    beq $t0, $t2, quit
+
+deathInvalid:
+    la $a0, unrecognisedCmdMsg
+    jal printString
+    
+    la $a0, death_message3
+    jal printString
+    
     j deathInputLoop
+
+deathReset:
+    jal reset
+    j deathExit
 
 deathExit:
     j gameLoop
