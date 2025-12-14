@@ -41,6 +41,7 @@ invalidEnergyRelationMsg:.asciiz "Invalid relation - initial energy cannot excee
 invalidCommandMsg:       .asciiz "Invalid command - plase try again.\n"
 unrecognisedCmdMsg:      .asciiz "Unknown command - please try again.\n"
 todoMsg: .asciiz "Command recognised - feature not yet implemented.\n"
+limitErrorMsg:		.asciiz "\nInvalid command: Value cannot exceed 50. Please try again.\n" 
 
 msg1: .asciiz "\nTotal Time Alive : "
 msg2: .asciiz " seconds"
@@ -857,12 +858,23 @@ initParam:
     addi $sp, $sp, -4
     sw   $ra, 0($sp)
 
+askEDR:
     # --- Get EDR ---
     la   $a0, edrPrompt
     la   $a1, EDR
     li   $a2, 1
     la   $a3, buffer        # pass the buffer address as an extra argument
     jal  getInitParamValue
+
+    #Check EDR limit
+    lw $t0, EDR
+    li $t1, 50
+    ble $t0, $t2, checkMEL_and_IEL   
+    
+    #if EDR > 50
+    la $a0, limitErrorMsg
+    jal printString
+    j askEDR    
 
 checkMEL_and_IEL:
     # --- Get MEL ---
@@ -871,7 +883,18 @@ checkMEL_and_IEL:
     li   $a2, 15
     la   $a3, buffer   
     jal  getInitParamValue
+    
+    # MEL limit  50
+    lw $t0, MEL
+    li $t1, 50
+    ble $t0, $t1, askIEL
+    
+    #MEL >50 Error 
+    la $a0, limitErrorMsg
+    jal printString
+    j checkMEL_and_IEL
 
+askIEL:
     # --- Get IEL ---
     la   $a0, ielPrompt
     la   $a1, IEL
