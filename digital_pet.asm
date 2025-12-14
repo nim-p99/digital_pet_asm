@@ -42,10 +42,18 @@ invalidEnergyRelationMsg:.asciiz "Invalid relation - initial energy cannot excee
 invalidCommandMsg:       .asciiz "Invalid command - plase try again.\n"
 unrecognisedCmdMsg:      .asciiz "Unknown command - please try again.\n"
 todoMsg: .asciiz "Command recognised - feature not yet implemented.\n"
+limitErrorMsg:		.asciiz "\nInvalid command: Value cannot exceed 50. Please try again.\n" 
 
-
-
-
+msg1: .asciiz "\nTotal Time Alive : "
+msg2: .asciiz " seconds"
+msg3: .asciiz "\nFinal Enerygy level: "
+msg4: .asciiz "\nNumbers of commands Entered: "
+msg5: .asciiz "\nNumbers of resets: "
+msg6: .asciiz "Pet died "
+timer: .word 0
+last1: .word 0
+num1: .word 0
+num2: .word 0
 # --- Energy Values ---
 EDR: .word 1
 MEL: .word 15
@@ -183,6 +191,9 @@ skipPrint:
     sw $v0, initial_time 
     la   $a0, gameCommandPrompt
     jal  printString
+    lw $a0,num1
+    addi $a0,$a0,1
+    sw $a0,num1
     la   $a0, buffer   # buffer address
     li   $a1, 20     # max length
     jal  readUserInput
@@ -268,6 +279,10 @@ depleteLoop:
   # print Time +1s... etc
   la $a0, energyDepleteMsg
   jal printString
+  lw $a0,timer
+  addi $a0,$a0,1
+  sw $a0,timer
+
 
   # deplete currentEnergy 
   lw $t3, currentEnergy
@@ -415,6 +430,9 @@ reset:
   addi $sp, $sp, -4
   sw $ra, 0($sp)
   
+  lw $t3,num2
+  addi $t3,$t3,1
+  sw $t3,num2
   # increment resetCount 
   lw $t3, resetCount
   addi $t3, $t3, 1
@@ -452,7 +470,7 @@ reset:
 
 
 quit: 
-  #quit message
+  # print quit message
   la $a0, quitMsg
   jal printString
 
@@ -488,6 +506,35 @@ performSave:
 quitWithoutSave:
   la $a0, goodbyeMsg
   jal printString
+  
+  la $a0, msg1
+  jal printString
+  lw $a0,timer
+  lw $v0,EDR
+  div $a0,$a0,$v0
+  li $v0,1
+  syscall
+ la $a0, msg2
+  jal printString
+   la $a0, msg3
+  jal printString
+  lw $a0,last1
+  li $v0,1
+  syscall
+  
+     la $a0, msg4
+  jal printString
+  lw $a0,num1
+  li $v0,1
+  syscall
+  
+     la $a0, msg5
+  jal printString
+  lw $a0,num2
+  li $v0,1
+  syscall
+  
+  
   li $v0, 10
   syscall
 
@@ -904,12 +951,23 @@ initParam:
     addi $sp, $sp, -4
     sw   $ra, 0($sp)
 
+askEDR:
     # --- Get EDR ---
     la   $a0, edrPrompt
     la   $a1, EDR
     li   $a2, 1
     la   $a3, buffer        # pass the buffer address as an extra argument
     jal  getInitParamValue
+
+    #Check EDR limit
+    lw $t0, EDR
+    li $t1, 50
+    ble $t0, $t2, checkMEL_and_IEL   
+    
+    #if EDR > 50
+    la $a0, limitErrorMsg
+    jal printString
+    j askEDR    
 
 checkMEL_and_IEL:
     # --- Get MEL ---
@@ -918,7 +976,18 @@ checkMEL_and_IEL:
     li   $a2, 15
     la   $a3, buffer   
     jal  getInitParamValue
+    
+    # MEL limit  50
+    lw $t0, MEL
+    li $t1, 50
+    ble $t0, $t1, askIEL
+    
+    #MEL >50 Error 
+    la $a0, limitErrorMsg
+    jal printString
+    j checkMEL_and_IEL
 
+askIEL:
     # --- Get IEL ---
     la   $a0, ielPrompt
     la   $a1, IEL
@@ -1218,8 +1287,13 @@ displayEnergyStatus:
     jal  printString
     move $a0, $t0              # restore $a0
 
+
+
     # --- Print current energy value ---
     lw   $a0, currentEnergy
+    ble $a0,0,jump
+    sw $a0,last1
+    jump:
     jal  printInt
     move $a0, $t0
 
