@@ -1236,7 +1236,7 @@ askEDR:
     #Check EDR limit
     lw $t0, EDR
     li $t1, 50
-    ble $t0, $t2, checkMEL_and_IEL   
+    ble $t0, $t1, checkMEL_and_IEL   
     
     #if EDR > 50
     la $a0, limitErrorMsg
@@ -1339,6 +1339,7 @@ initPromptLoop:
     lw   $a0, 0($sp)         # buffer address
     li   $a1, 20   # max length
     jal  readUserInput
+
 
     # blank check
     lw   $a0, 0($sp)
