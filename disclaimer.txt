@@ -33,6 +33,7 @@ EXTRA FEATURES
     - Number of commands entered
     - Number of resets
 
-3. Choose Your Pet
+3. Pet Charactersitics
 ---------------------------
-- The user can select the type of pet they want to play with (cat or dog).
+- TYPE: The user can select the type of pet they want to play with (cat or dog).
+- NAME: The user can provide the pet with a name of their choice. 
