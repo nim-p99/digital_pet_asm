@@ -7,7 +7,6 @@ welcomeMessage:      .asciiz "=== Digital Pet Simulator (MIPS32) ===\n"
 initMessage:         .asciiz "Initialising system...\n\n"
 setParamMsg:         .asciiz "Please set parameters (press Enter for default): \n"
 successMsg:          .asciiz "\nParameters set successfully!\n"
-initStatusAlive:     .asciiz "\nYour Digital Pet is alive! Current status:\n"
 initStatusAlive1:    .asciiz "\nYour Digital Pet, "
 initStatusAlive2:    .asciiz ", is alive! Current status:\n"
 goodbyeMsg:          .asciiz "Saving session... goodbye! Thanks for playing."
@@ -60,7 +59,7 @@ last1: .word 0
 num1: .word 0
 num2: .word 0
 
-# --- Cat/ Dogs --- 
+# --- Pet Name/Type --- 
 petType: .word 1 #0 = Cat, 1 = Dog
 petName: .space 32
 
