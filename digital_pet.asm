@@ -11,6 +11,7 @@ successMsg:          .asciiz "\nParameters set successfully!\n"
 initStatusAlive1:    .asciiz "\nYour Digital Pet, "
 initStatusAlive2:    .asciiz ", is alive! Current status:\n"
 goodbyeMsg:          .asciiz "Saving session... goodbye! Thanks for playing."
+saveMsg:             .asciiz "Saving session..."
 energyDepleteMsg:    .asciiz "Time +1s... Natural energy depletion!\n"
 maxEnergyErrMsg:     .asciiz "Error, maximum energy level reached! Capped to the Max.\n"
 feedMsg:             .asciiz "\nCommand recognised: Feed "
@@ -187,8 +188,11 @@ loadGameChoice:
 	jal printString
 	jal displayConfig
 	jal checkEnergyStatus
-	la $a0, initStatusAlive
+	la $a0, initStatusAlive1 
 	jal printString
+  jal printPetName
+  la $a0, initStatusAlive2
+  jal printString
 
 	#Getting time
 	jal getSysTime
