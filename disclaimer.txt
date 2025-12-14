@@ -1,0 +1,38 @@
+========================================================================
+DISCLAIMER
+========================================================================
+
+USE OF AI 
+----------
+- During this project, AI tools (primarily ChatGPT) were used to support our understanding of MIPS 32 
+programming language concepts, such as explanations of addressing modes and clarifications of 
+correct register usage.
+
+- Additionally, AI was occasionally used to suggest potential debugging strategies.
+
+- In instances where AI generated suggestions or example code, these were used SOLELY as reference material.
+
+- All programme logic, structure, and final code implementation were written, tested, and refined exclusively by the group members.
+
+- **No AI system was used to generate the final code submitted for assessment.**
+
+========================================================================
+EXTRA FEATURES
+========================================================================
+
+1. Persistent State Storage
+---------------------------
+- The programme implements a feature that allows the user to save their pet's energy state to a file (save_game.txt).
+- The user can then load this state when they return to the game, allowing them to continue where they left off.
+
+2. End-of-Game Analytics
+---------------------------
+- Analytics shown at the end of each game, including:
+    - Total time alive
+    - Final energy level
+    - Number of commands entered
+    - Number of resets
+
+3. Choose Your Pet
+---------------------------
+- The user can select the type of pet they want to play with (cat or dog).
