@@ -1506,7 +1506,7 @@ petDead:
     jal printDeadPet
     la $a0, death_message3 
     jal printString
-    la $a0, death_message3
+    la $a0, death_message4
     jal printString
 
 deathInputLoop:
@@ -1533,7 +1533,7 @@ deathInvalid:
     la $a0, unrecognisedCmdMsg
     jal printString
     
-    la $a0, death_message3
+    la $a0, death_message4
     jal printString
     
     j deathInputLoop
