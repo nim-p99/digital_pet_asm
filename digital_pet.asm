@@ -99,18 +99,24 @@ time_interval: .word 1000
 #-----------------
 
 #menu & file I/O strings
-menuPrompt: 	.asciiz "Select  Mod:\n1 Start New Game\n2: Load Game\n"
-filePrompt:  	.asciiz "\Enter full file path (Use double backslashes for directories e.g. C:\\\\User\\\\digital_pet_asm\\\\save.txt\n"
-savePrompt: 	.asciiz "\nNo save file loadeed. Enter path to save (or Press Enter to skip):\n"
-fileErrorMsg:        .asciiz "Error: Could not open file. Starting New Game...\n"
-fileSaveSuccess:     .asciiz "\nGame saved successfully.\n"
-fileSaveFail:        .asciiz "\nError: Could not save to file.\n"
+menuPrompt:		.asciiz "Select  Mode:\n[1] Start New Game\n[2] Load Game\n"
+filePrompt:		.asciiz "\nEnter full file path of save_game.txt (Use double backslashes for directories e.g. C:\\\\User\\\\Desktop\\\\digital_pet_asm\\\\save_game.txt\n*File path must not contain spaces:\n"
+savePrompt:		.asciiz "\nNo save file loadeed. Enter full file path to save, or Press Enter to skip (\n(Use double backslashes for directories e.g. C:\\\\User\\\\digital_pet_asm\\\\save_game.txt)\n*File path must not contain spaces:\n"
+fileErrorMsg:		.asciiz "Error: Could not open file. Starting New Game...\n"
+fileSaveSuccess:	.asciiz "\nGame saved successfully.\n"
+fileSaveFail:		.asciiz "\nError: Could not save to file.\n"
 
 # --- File Variables ---
-filePathBuffer:      .space 256        # Larger buffer for file paths
-hasFilePath:         .word 0           # Flag: 0 = No File, 1 = File Loaded/Set
-saveDataBuffer:      .space 20         # Buffer to hold 5 words (Energy, MEL, EDR, IEL, Time)
+filePathBuffer:		.space 256        # Larger buffer for file paths
+hasFilePath:		.word 0           # Flag: 0 = No File, 1 = File Loaded/Set
+saveDataBuffer:		.space 20         # Buffer to hold 5 words (Energy, MEL, EDR, IEL, Time)
 
+# --- New Messages for Offline Depletion ---
+timePassedMsg:		.asciiz "\nWhile you were away, "
+minutesMsg:		.asciiz " minutes have passed.\n"
+depletedByMsg:		.asciiz "Energy has been depleted by: "
+originalBarMsg:		.asciiz "\nOriginal Energy Bar (at save):\n"
+updatedBarMsg:		.asciiz "Updated Energy (now):\n"
 
 .text
 .globl main
@@ -119,50 +125,50 @@ saveDataBuffer:      .space 20         # Buffer to hold 5 words (Energy, MEL, ED
 # MAIN ROUTINE
 # ==============================================================
 main:
-    jal initSystem
-       # Print Menu
-    la $a0, menuPrompt
-    jal printString
-    
-    # Read user choice (using small buffer)
-    la $a0, buffer
-    li $a1, 5
-    jal readUserInput
-    
-    # Check input '2' for Load Game
-    lb $t0, buffer
-    li $t1, '2'
-    beq $t0, $t1, loadGameChoice
-    
-    # If input != 2: New Game 
-    # Set hasFilePath = 0
-    sw $0, hasFilePath
-    jal initParam
-    j gameLoop
+    	jal initSystem
+	# Print Menu
+	la $a0, menuPrompt
+	jal printString
+
+	#Read user choice 
+	la $a0, buffer
+	li $a1, 5
+	jal readUserInput
+
+	#Check input '2' for Load Game
+	lb $t0, buffer
+	li $t1, '2'
+	beq $t0, $t1, loadGameChoice
+
+	#If input != 2: New Game 
+	#Set hasFilePath = 0
+	sw $0, hasFilePath
+	jal initParam
+	j gameLoop
 
 loadGameChoice:
-    jal loadGame
-    # If load failed, $v0 returns 0, we do initParam. If success, $v0=1, skip initParam.
-    beq $v0, $0, loadFailed_DoInit
+	jal loadGame
+	#If load failed, $v0 returns 0, we do initParam. If success, $v0=1, skip initParam.
+	beq $v0, $0, loadFailed_DoInit
+
+	jal calculateOfflineDepletion
+
+	#If Load Success print game display:
+	la $a0, successMsg
+	jal printString
+	jal displayConfig
+	jal checkEnergyStatus
+	la $a0, initStatusAlive
+	jal printString
+
+	#Getting time
+	jal getSysTime
+	sw $v0, initial_time
     
-    # If Load Success:
-    # We still need to display config and status, but skip asking for params
-    la $a0, successMsg
-    jal printString
-    jal displayConfig
-    jal checkEnergyStatus
-    la $a0, initStatusAlive
-    jal printString
-    
-    # Also need to initialize the timer anchor for the game loop
-    jal getSysTime
-    sw $v0, initial_time
-    
-    j gameLoop
+	j gameLoop
 
 loadFailed_DoInit:
-    jal initParam
-
+	jal initParam
     
 gameLoop:
     jal checkEnergyLevel
@@ -1397,193 +1403,245 @@ strip_done:
 
 
 #===========================#
-# File I/O Helper Function
+# Persistance Helper Function
 #===========================#
 
 # loadGame: Prompts path, opens file, reads 5 words, fills variables
 # Returns $v0 = 1 (success) or 0 (fail)
 loadGame:
-    addi $sp, $sp, -4
-    sw $ra, 0($sp)
+	addi $sp, $sp, -4		
+	sw $ra, 0($sp)
 
-    # Prompt
-    la $a0, filePrompt
-    jal printString
+	# Prompt
+	la $a0, filePrompt
+	jal printString
+	
+	# Read Path
+	la $a0, filePathBuffer
+	li $a1, 255
+	jal readUserInput
+	
+	# Fix newline
+	la $a0, filePathBuffer
+	jal stripWhiteSpaceForPath
     
-    # Read Path
-    la $a0, filePathBuffer
-    li $a1, 255
-    jal readUserInput
+	# Open File (Syscall 13)
+	# $a0 = path, $a1 = flags (0 = Read), $a2 = mode (0)
+	la $a0, filePathBuffer
+	li $a1, 0
+	li $a2, 0
+	li $v0, 13
+	syscall
+	
+	move $s0, $v0  # Save File Descriptor
+	bltz $s0, loadError # if $v0 < 0, error
+	
+	# Read File (Syscall 14)
+	# Read 20 bytes (5 words) directly into saveDataBuffer
+	move $a0, $s0
+	la $a1, saveDataBuffer
+	li $a2, 20
+	li $v0, 14
+	syscall
+	
+	# Close File (Syscall 16)
+	move $a0, $s0
+	li $v0, 16
+	syscall
     
-    # Fix newline
-    la $a0, filePathBuffer
-    jal stripWhiteSpaceForPath
-    
-    # Open File (Syscall 13)
-    # $a0 = path, $a1 = flags (0 = Read), $a2 = mode (0)
-    la $a0, filePathBuffer
-    li $a1, 0
-    li $a2, 0
-    li $v0, 13
-    syscall
-    
-    move $s0, $v0  # Save File Descriptor
-    bltz $s0, loadError # if $v0 < 0, error
+	# Unpack Data from Buffer to Variables
+	la $t0, saveDataBuffer
+	lw $t1, 0($t0)
+	sw $t1, currentEnergy
+	
+	lw $t1, 4($t0)
+	sw $t1, MEL
+	lw $t1, 8($t0)
+	sw $t1, EDR
 
-    # Read File (Syscall 14)
-    # Read 20 bytes (5 words) directly into saveDataBuffer
-    move $a0, $s0
-    la $a1, saveDataBuffer
-    li $a2, 20
-    li $v0, 14
-    syscall
-    
-    # Close File (Syscall 16)
-    move $a0, $s0
-    li $v0, 16
-    syscall
-    
-    # Unpack Data from Buffer to Variables
-    la $t0, saveDataBuffer
-    
-    lw $t1, 0($t0)
-    sw $t1, currentEnergy
-    
-    lw $t1, 4($t0)
-    sw $t1, MEL
-    
-    lw $t1, 8($t0)
-    sw $t1, EDR
-    
-    lw $t1, 12($t0)
-    sw $t1, IEL
-    
-    # Timestamp logic: We just loaded 'initial_time' effectively
-    # But usually game logic resets time on load. 
-    # The requirement says SAVE timestamp.
-    # We will ignore the loaded timestamp for logic purposes and just let gameLoop set current time,
-    # OR we could restore it. The requirement to save it implies interest in it.
-    # Let's just load it into initial_time for consistency, though gameLoop overwrites it immediately.
-    lw $t1, 16($t0)
-    sw $t1, initial_time
+	lw $t1, 12($t0)
+	sw $t1, IEL
 
-    # Set hasFilePath = 1
-    li $t1, 1
-    sw $t1, hasFilePath
-    
-    li $v0, 1 # Success
-    j loadReturn
+	# Timestamp logic
+	lw $t1, 16($t0)
+	sw $t1, initial_time
+	
+	# Set hasFilePath = 1
+	li $t1, 1
+	sw $t1, hasFilePath
+
+	li $v0, 1 # Success
+	j loadReturn
 
 loadError:
-    la $a0, fileErrorMsg
-    jal printString
-    sw $0, hasFilePath
-    li $v0, 0 # Fail
+	la $a0, fileErrorMsg
+ 	jal printString
+	sw $0, hasFilePath
+	li $v0, 0 # Fail
 
 loadReturn:
-    lw $ra, 0($sp)
-    addi $sp, $sp, 4
-    jr $ra
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	jr $ra
 
 # saveGame: Saves 5 variables to filePathBuffer
 saveGame:
-    addi $sp, $sp, -4
-    sw $ra, 0($sp)
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	# Pack variables into saveDataBuffer
+	la $t0, saveDataBuffer
+	lw $t1, currentEnergy
+	sw $t1, 0($t0)
+	lw $t1, MEL
+	sw $t1, 4($t0)
+	lw $t1, EDR
+	sw $t1, 8($t0)
+	lw $t1, IEL
+	sw $t1, 12($t0)
+	#Get Current Time for timestamp
+	jal getSysTime
+	la $t0, saveDataBuffer 
+	sw $v0, 16($t0)
 
-    # Pack variables into saveDataBuffer
-    la $t0, saveDataBuffer
-    
-    lw $t1, currentEnergy
-    sw $t1, 0($t0)
-    
-    lw $t1, MEL
-    sw $t1, 4($t0)
-    
-    lw $t1, EDR
-    sw $t1, 8($t0)
-    
-    lw $t1, IEL
-    sw $t1, 12($t0)
-    
-    # Get Current Time for timestamp
-    jal getSysTime
-    la $t0, saveDataBuffer # Reload address (jal might change temps)
-    sw $v0, 16($t0)
-    
-    # Open File (Syscall 13)
-    # $a0 = path, $a1 = flags (1 = Write/Create), $a2 = mode (0)
-    la $a0, filePathBuffer
-    li $a1, 1     # Flag 1 is usually Write-Only (truncating) in SPIM/MARS
-    li $a2, 0
-    li $v0, 13
-    syscall
-    
-    move $s0, $v0
-    bltz $s0, saveError
-    
-    # Write File (Syscall 15)
-    move $a0, $s0
-    la $a1, saveDataBuffer
-    li $a2, 20   # 5 words * 4 bytes
-    li $v0, 15
-    syscall
-    
-    # Close File
-    move $a0, $s0
-    li $v0, 16
-    syscall
-    
-    la $a0, fileSaveSuccess
-    jal printString
-    j saveReturn
+	#Open File (Syscall 13)
+	#a0 = path, $a1 = flags (1 = Write/Create), $a2 = mode (0)
+	la $a0, filePathBuffer
+	li $a1, 1     
+	li $a2, 0
+	li $v0, 13
+	syscall
+	    
+	move $s0, $v0
+	bltz $s0, saveError
 
+	#Write File (Syscall 15)
+	move $a0, $s0
+	la $a1, saveDataBuffer
+	li $a2, 20   # 5 words * 4 bytes
+	li $v0, 15
+	syscall
+
+#Close File
+	move $a0, $s0
+	li $v0, 16
+	syscall
+    
+	la $a0, fileSaveSuccess
+	jal printString
+	j saveReturn
+	
 saveError:
-    la $a0, fileSaveFail
-    jal printString
-
+	la $a0, fileSaveFail
+	jal printString
 saveReturn:
-    lw $ra, 0($sp)
-    addi $sp, $sp, 4
-    jr $ra
-
-
-
-
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	jr $ra
 stripWhiteSpaceForPath:
-    # preserve registers
-    addi $sp, $sp, -12
-    sw $ra, 8($sp)
-    sw $s0, 4($sp)
-    sw $s1, 0($sp)
+#preserve registers
+	addi $sp, $sp, -12
+	sw $ra, 8($sp)
+	sw $s0, 4($sp)
+	sw $s1, 0($sp)
 
-    move $s0, $a0        # $s0 = read pointer
-    move $s1, $a0        # $s1 = write pointer
+	move $s0, $a0        # $s0 = read pointer
+	move $s1, $a0        # $s1 = write pointer
 
 strip_loop_path:
-    lb $t0, 0($s0)       # load next byte
-    beqz $t0, strip_done_path # stop at null terminator
+	lb $t0, 0($s0)       # load next byte
+	beqz $t0, strip_done_path # stop at null terminator
 
-    # check for space (0x20), tab (0x09), newline (0x0A)
-    li $t1, 32
-    beq $t0, $t1, skip_char_path
-    li $t1, 10
-    beq $t0, $t1, skip_char_path
-  
-    # not whitespace → keep it
-    sb $t0, 0($s1)
-    addi $s1, $s1, 1
+	#check for space (0x20),newline (0x0A)
+	li $t1, 32
+	beq $t0, $t1, skip_char_path
+	li $t1, 10
+	beq $t0, $t1, skip_char_path
+
+	#not whitespace → keep it
+	sb $t0, 0($s1)
+	addi $s1, $s1, 1
 
 skip_char_path:
-    addi $s0, $s0, 1
-    j strip_loop
+	addi $s0, $s0, 1
+	j strip_loop
 
 strip_done_path:
-    sb $zero, 0($s1)     # null-terminate the cleaned string
+	sb $zero, 0($s1)     # null-terminate the cleaned string
+	
+	#restore registers
+	lw $s1, 0($sp)
+	lw $s0, 4($sp)
+	lw $ra, 8($sp)
+	addi $sp, $sp, 12
+	jr $ra
 
-    # restore registers
-    lw $s1, 0($sp)
-    lw $s0, 4($sp)
-    lw $ra, 8($sp)
-    addi $sp, $sp, 12
-    jr $ra
-    
+# ==============================================================
+# calculateOfflineDepletion
+# Compares saved initial_time with current time and applies EDR.
+# ==============================================================
+calculateOfflineDepletion:
+	addi $sp, $sp, -20
+	sw $ra, 16($sp)
+	sw $s0, 12($sp) # Saved Time
+	sw $s1, 8($sp)  # Current Time
+	sw $s2, 4($sp)  # Elapsed Minutes
+	sw $s3, 0($sp)  # Depletion Amount
+
+	#Display original state first
+	la $a0, originalBarMsg
+	jal printString
+	jal healthBar
+	jal displayEnergyStatus
+
+	#Get Current Time and calculate difference
+	lw $s0, initial_time
+	jal getSysTime
+	move $s1, $v0
+
+	sub $t0, $s1, $s0      # $t0 = total milliseconds elapsed
+	li $t1, 60000          # 60,000 ms in a minute
+	div $t0, $t1
+	mflo $s2               # $s2 = Total full minutes passed
+
+	#Calculate Depletion (Minutes * EDR)
+	lw $t2, EDR
+	mul $s3, $s2, $t2      # $s3 = total energy to lose
+
+	#Display Info
+	la $a0, timePassedMsg
+	jal printString
+	move $a0, $s2
+	jal printInt
+	la $a0, minutesMsg
+	jal printString
+	
+	la $a0, depletedByMsg
+	jal printString
+	move $a0, $s3
+	jal printInt
+	la $a0, newline
+	jal printString
+
+	#Apply Depletion to currentEnergy
+	lw $t3, currentEnergy
+	sub $t3, $t3, $s3
+
+	#Prevent energy from being < 0 csa
+	bgtz $t3, storeNewEnergy
+	li $t3, 0
+	
+storeNewEnergy:
+	sw $t3, currentEnergy
+	#Show updated status
+	la $a0, updatedBarMsg
+	jal printString
+	jal healthBar
+	jal displayEnergyStatus
+
+	lw $s3, 0($sp)
+	lw $s2, 4($sp)
+	lw $s1, 8($sp)
+	lw $s0, 12($sp)
+	lw $ra, 16($sp)
+	addi $sp, $sp, 20
+	jr $ra
