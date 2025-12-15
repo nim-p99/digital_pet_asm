@@ -128,6 +128,7 @@ menuPrompt:		.asciiz "Select  Mode:\n[1] Start New Game\n[2] Load Game\n"
 filePrompt:		.asciiz "\nEnter full file path of save_game.txt (Use double backslashes for directories e.g. C:\\\\User\\\\Desktop\\\\digital_pet_asm\\\\save_game.txt\n*File path must not contain spaces:\n"
 savePrompt:		.asciiz "\nNo save file loadeed. Enter full file path to save, or Press Enter to skip (\n(Use double backslashes for directories e.g. C:\\\\User\\\\digital_pet_asm\\\\save_game.txt)\n*File path must not contain spaces:\n"
 fileErrorMsg:		.asciiz "Error: Could not open file. Starting New Game...\n"
+fileEmptyMsg:       .asciiz "\nError: Save file contains no data. Starting New Game...\n"
 fileSaveSuccess:	.asciiz "\nGame saved successfully.\n"
 fileSaveFail:		.asciiz "\nError: Could not save to file.\n"
 
@@ -1824,10 +1825,17 @@ loadGame:
     li $v0, 14
     syscall
     
-    # Close File (Syscall 16)
+    move $t0, $v0   # Save the number of bytes actually read into $t0
+    
+    
+    # Close File 
     move $a0, $s0
     li $v0, 16
     syscall
+    
+    #if bytes less than 88 = either no data or data is corrupted 
+    li $t1, 88
+    blt $t0, $t1, loadEmptyError
   
     # Load Standard Vars
     la $t0, saveDataBuffer
@@ -1895,6 +1903,13 @@ load_name_done:
     li $v0, 1
     j loadReturn
 
+loadEmptyError:
+    la $a0, fileEmptyMsg
+    jal printString
+    sw $0, hasFilePath
+    li $v0, 0 # fail
+    j loadReturn
+    
 loadError:
     la $a0, fileErrorMsg
     jal printString
