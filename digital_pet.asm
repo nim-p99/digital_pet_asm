@@ -6,12 +6,12 @@
 
 welcomeMessage:      .asciiz "=== Digital Pet Simulator (MIPS32) ===\n"
 initMessage:         .asciiz "Initialising system...\n\n"
-setParamMsg:         .asciiz "Please set parameters (press Enter for default): \n"
+setParamMsg:         .asciiz "\nPlease set parameters (press Enter for default): \n"
 successMsg:          .asciiz "\nParameters set successfully!\n"
 initStatusAlive1:    .asciiz "\nYour Digital Pet, "
 initStatusAlive2:    .asciiz ", is alive! Current status:\n"
-goodbyeMsg:          .asciiz "Saving session... goodbye! Thanks for playing."
-saveMsg:             .asciiz "Saving session..."
+goodbyeMsg:          .asciiz "Goodbye! Thanks for playing."
+saveMsg:             .asciiz "\nSaving session..."
 energyDepleteMsg:    .asciiz "Time +1s... Natural energy depletion!\n"
 maxEnergyErrMsg:     .asciiz "Error, maximum energy level reached! Capped to the Max.\n"
 feedMsg:             .asciiz "\nCommand recognised: Feed "
@@ -32,9 +32,6 @@ units_only_msg:      .asciiz " units.\n"
 multiplied:          .asciiz "x"
 close_paren: 	     .asciiz ").\n"
 
-
-
-
 # --- Prompts ---
 namePrompt: .asciiz "Please enter a name for your Digital Pet: "
 edrPrompt: .asciiz "Enter Natural Energy Depletion Rate (EDR) [Default: 1]: "
@@ -53,7 +50,7 @@ unrecognisedCmdMsg:      .asciiz "Unknown command - please try again.\n"
 todoMsg: .asciiz "Command recognised - feature not yet implemented.\n"
 limitErrorMsg:		.asciiz "\nInvalid command: Value cannot exceed 50. Please try again.\n" 
 
-msg1: .asciiz "\nTotal Time Alive : "
+msg1: .asciiz "\n\nTotal Time Alive : "
 msg2: .asciiz " seconds"
 msg3: .asciiz "\nFinal Enerygy level: "
 msg4: .asciiz "\nNumbers of commands Entered: "
@@ -93,8 +90,6 @@ melUnits:   .asciiz " units\n"
 ielLabel:   .asciiz "- IEL: "
 ielUnits:   .asciiz " units\n"
 
-
-# HAVENT GROUPED THE BELOW CONSTANTS INTO NICE FORMATTED SCETIONS YET
 energyLabel:     .asciiz " Energy: "
 slashSymbol:     .asciiz "/"
 barLeftBracket:  .asciiz "["
@@ -117,7 +112,6 @@ entertainCount: .word 0
 resetCount: .word 0
 depleteFlag: .word 0 
 petDeadFlag: .word 0
-# THINK ABOVE LOGIC COULD BE IF USER INPUT = "{SPECIFIC LETTER}" THEN DO A BRANCH TO BASICALLY ADD ONE TO WHICHEVER COMMAND INPUT CORRESPONDED TO 
 
 # time related 
 initial_time: .word 0 
@@ -137,12 +131,12 @@ fileErrorMsg:		.asciiz "Error: Could not open file. Starting New Game...\n"
 fileSaveSuccess:	.asciiz "\nGame saved successfully.\n"
 fileSaveFail:		.asciiz "\nError: Could not save to file.\n"
 
-# --- File Variables ---
+#File Variables
 filePathBuffer:		.space 256        # Larger buffer for file paths
 hasFilePath:		.word 0           # Flag: 0 = No File, 1 = File Loaded/Set
-saveDataBuffer:		.space 20         # Buffer to hold 5 words (Energy, MEL, EDR, IEL, Time)
+saveDataBuffer:		.space 128         # Buffer to hold 5 words (Energy, MEL, EDR, IEL, Time)
 
-# --- New Messages for Offline Depletion ---
+#New Messages for Offline Depletion
 timePassedMsg:		.asciiz "\nWhile you were away, "
 minutesMsg:		.asciiz " minutes have passed.\n"
 depletedByMsg:		.asciiz "Energy has been depleted by: "
@@ -187,14 +181,18 @@ loadGameChoice:
 	#If Load Success print game display:
 	la $a0, successMsg
 	jal printString
+	
 	jal displayConfig
 	jal checkEnergyStatus
 	la $a0, initStatusAlive1 
 	jal printString
-  jal printPetName
-  la $a0, initStatusAlive2
-  jal printString
-
+	
+  	jal printPetName
+  	la $a0, initStatusAlive2
+  	jal printString
+	
+	jal printHappyPet
+	
 	#Getting time
 	jal getSysTime
 	sw $v0, initial_time
@@ -762,9 +760,9 @@ quit:
   sw $t0, hasFilePath
   
 performSave:
-  jal saveGame
   la $a0, saveMsg
   jal printString
+  jal saveGame
 
 quitWithoutSave:
   la $a0, goodbyeMsg
@@ -1209,10 +1207,7 @@ initSystem:
 
     la $a0, initMessage
     jal printString
-
-    la $a0, setParamMsg
-    jal printString
-
+   
     lw $ra, 0($sp)
     addi $sp, $sp, 4
     jr $ra
@@ -1225,6 +1220,9 @@ initSystem:
 initParam:
     addi $sp, $sp, -4
     sw   $ra, 0($sp)
+    
+    la $a0, setParamMsg
+    jal printString
 
 askEDR:
     # --- Get EDR ---
@@ -1790,138 +1788,230 @@ strip_done:
 # Persistance Helper Function
 #===========================#
 
-# loadGame: Prompts path, opens file, reads 5 words, fills variables
-# Returns $v0 = 1 (success) or 0 (fail)
+# loadGame: Prompts path, opens file, reads data, fills variables
 loadGame:
-	addi $sp, $sp, -4		
-	sw $ra, 0($sp)
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
 
-	# Prompt
-	la $a0, filePrompt
-	jal printString
-	
-	# Read Path
-	la $a0, filePathBuffer
-	li $a1, 255
-	jal readUserInput
-	
-	# Fix newline
-	la $a0, filePathBuffer
-	jal stripWhiteSpaceForPath
+    # Prompt
+    la $a0, filePrompt
+    jal printString
     
-	# Open File (Syscall 13)
-	# $a0 = path, $a1 = flags (0 = Read), $a2 = mode (0)
-	la $a0, filePathBuffer
-	li $a1, 0
-	li $a2, 0
-	li $v0, 13
-	syscall
-	
-	move $s0, $v0  # Save File Descriptor
-	bltz $s0, loadError # if $v0 < 0, error
-	
-	# Read File (Syscall 14)
-	# Read 20 bytes (5 words) directly into saveDataBuffer
-	move $a0, $s0
-	la $a1, saveDataBuffer
-	li $a2, 20
-	li $v0, 14
-	syscall
-	
-	# Close File (Syscall 16)
-	move $a0, $s0
-	li $v0, 16
-	syscall
+    # Read Path
+    la $a0, filePathBuffer
+    li $a1, 255
+    jal readUserInput
     
-	# Unpack Data from Buffer to Variables
-	la $t0, saveDataBuffer
-	lw $t1, 0($t0)
-	sw $t1, currentEnergy
-	
-	lw $t1, 4($t0)
-	sw $t1, MEL
-	lw $t1, 8($t0)
-	sw $t1, EDR
+    # Fix newline
+    la $a0, filePathBuffer
+    jal stripWhiteSpaceForPath
+    
+    # Open File
+    la $a0, filePathBuffer
+    li $a1, 0
+    li $a2, 0
+    li $v0, 13
+    syscall
+    
+    move $s0, $v0  # Save File Descriptor
+    bltz $s0, loadError 
 
-	lw $t1, 12($t0)
-	sw $t1, IEL
+    # Read File 
+    # Read 88 bytes directly into saveDataBuffer
+    move $a0, $s0
+    la $a1, saveDataBuffer
+    li $a2, 88
+    li $v0, 14
+    syscall
+    
+    # Close File (Syscall 16)
+    move $a0, $s0
+    li $v0, 16
+    syscall
+  
+    # Load Standard Vars
+    la $t0, saveDataBuffer
+    
+    # Load Standard Vars
+    lw $t1, 0($t0)
+    sw $t1, currentEnergy
+    lw $t1, 4($t0)
+    sw $t1, MEL
+    lw $t1, 8($t0)
+    sw $t1, EDR
+    lw $t1, 12($t0)
+    sw $t1, IEL
+    lw $t1, 16($t0)
+    sw $t1, initial_time
+    
+    #Load Pet Type and Stats
+    lw $t1, 20($t0)
+    sw $t1, petType
+    
+    lw $t1, 24($t0)
+    sw $t1, feedCount
+    
+    lw $t1, 28($t0)
+    sw $t1, entertainCount
+    
+    lw $t1, 32($t0)
+    sw $t1, petCount
+    
+    lw $t1, 36($t0)
+    sw $t1, ignoreCount
+    
+    lw $t1, 40($t0)
+    sw $t1, resetCount
+    
+    lw $t1, 44($t0)
+    sw $t1, num1
+    
+    lw $t1, 48($t0)
+    sw $t1, num2
+    
+    lw $t1, 52($t0)
+    sw $t1, timer
 
-	# Timestamp logic
-	lw $t1, 16($t0)
-	sw $t1, initial_time
-	
-	# Set hasFilePath = 1
-	li $t1, 1
-	sw $t1, hasFilePath
+    # Load Pet Name
+    # Copy from saveDataBuffer + 56 -> petName variable
+    addi $t1, $t0, 56    # Source (Buffer + 56)
+    la $t2, petName      # Destination
+    li $t3, 32           # Max length
 
-	li $v0, 1 # Success
-	j loadReturn
+load_name_loop:
+    lb $t4, 0($t1)       # Load byte from buffer
+    sb $t4, 0($t2)       # Store byte to petName
+    beqz $t4, load_name_done 
+    addi $t1, $t1, 1
+    addi $t2, $t2, 1
+    addi $t3, $t3, -1
+    bgtz $t3, load_name_loop
+
+load_name_done:
+
+    # Set hasFilePath = 1
+    li $t1, 1
+    sw $t1, hasFilePath
+    li $v0, 1
+    j loadReturn
 
 loadError:
-	la $a0, fileErrorMsg
- 	jal printString
-	sw $0, hasFilePath
-	li $v0, 0 # Fail
+    la $a0, fileErrorMsg
+    jal printString
+    sw $0, hasFilePath
+    li $v0, 0 # Fail
 
 loadReturn:
-	lw $ra, 0($sp)
-	addi $sp, $sp, 4
-	jr $ra
-
-# saveGame: Saves 5 variables to filePathBuffer
-saveGame:
-	addi $sp, $sp, -4
-	sw $ra, 0($sp)
-	# Pack variables into saveDataBuffer
-	la $t0, saveDataBuffer
-	lw $t1, currentEnergy
-	sw $t1, 0($t0)
-	lw $t1, MEL
-	sw $t1, 4($t0)
-	lw $t1, EDR
-	sw $t1, 8($t0)
-	lw $t1, IEL
-	sw $t1, 12($t0)
-	#Get Current Time for timestamp
-	jal getSysTime
-	la $t0, saveDataBuffer 
-	sw $v0, 16($t0)
-
-	#Open File (Syscall 13)
-	#a0 = path, $a1 = flags (1 = Write/Create), $a2 = mode (0)
-	la $a0, filePathBuffer
-	li $a1, 1     
-	li $a2, 0
-	li $v0, 13
-	syscall
-	    
-	move $s0, $v0
-	bltz $s0, saveError
-
-	#Write File (Syscall 15)
-	move $a0, $s0
-	la $a1, saveDataBuffer
-	li $a2, 20   # 5 words * 4 bytes
-	li $v0, 15
-	syscall
-
-#Close File
-	move $a0, $s0
-	li $v0, 16
-	syscall
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra
     
+# saveGame: Saves 5 variables to filePathBuffer
+# saveGame: Saves variables, stats, type, and name to filePathBuffer
+saveGame:
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
 
-	la $a0, fileSaveSuccess
-	jal printString
-	j saveReturn
-	
+    #Pack variables
+    la $t0, saveDataBuffer
+    
+    # save Standard Game Vars (Safe, before any function calls)
+    lw $t1, currentEnergy
+    sw $t1, 0($t0)
+    lw $t1, MEL
+    sw $t1, 4($t0)
+    lw $t1, EDR
+    sw $t1, 8($t0)
+    lw $t1, IEL
+    sw $t1, 12($t0)
+    
+    # 2. Get Current Time
+    jal getSysTime
+   
+    la $t0, saveDataBuffer 
+   
+
+    sw $v0, 16($t0)   # Save time 
+
+    # Save Pet Type and Stats
+    lw $t1, petType
+    sw $t1, 20($t0)
+    
+    lw $t1, feedCount
+    sw $t1, 24($t0)
+    
+    lw $t1, entertainCount
+    sw $t1, 28($t0)
+    
+    lw $t1, petCount
+    sw $t1, 32($t0)
+    
+    lw $t1, ignoreCount
+    sw $t1, 36($t0)
+    
+    lw $t1, resetCount
+    sw $t1, 40($t0)
+    
+    lw $t1, num1         # Commands entered
+    sw $t1, 44($t0)
+    
+    lw $t1, num2         # Resets (secondary)
+    sw $t1, 48($t0)
+    
+    lw $t1, timer        # Total time alive
+    sw $t1, 52($t0)
+
+    #Save Pet Name 
+    la $t1, petName       # Source
+    addi $t2, $t0, 56     # Destination (Buffer + 56)
+    li $t3, 32            # Max length (32 bytes)
+
+save_name_loop:
+    lb $t4, 0($t1)        # Load byte from name
+    sb $t4, 0($t2)        # Store byte to buffer
+    beqz $t4, save_name_done # If null terminator, we are done
+    addi $t1, $t1, 1
+    addi $t2, $t2, 1
+    addi $t3, $t3, -1
+    bgtz $t3, save_name_loop 
+
+save_name_done:
+
+    # Open File (Write Mode)
+    la $a0, filePathBuffer
+    li $a1, 1      
+    li $a2, 0
+    li $v0, 13
+    syscall
+      
+    move $s0, $v0
+    bltz $s0, saveError
+
+    # Write File 
+    move $a0, $s0
+    la $a1, saveDataBuffer
+    li $a2, 88   # Write 88 bytes
+    li $v0, 15
+    syscall
+
+    # Close File
+    move $a0, $s0
+    li $v0, 16
+    syscall
+
+    la $a0, fileSaveSuccess
+    jal printString
+    j saveReturn
+    
 saveError:
-	la $a0, fileSaveFail
-	jal printString
+    la $a0, fileSaveFail
+    jal printString
+
 saveReturn:
-	lw $ra, 0($sp)
-	addi $sp, $sp, 4
-	jr $ra
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra
+    
 stripWhiteSpaceForPath:
 #preserve registers
 	addi $sp, $sp, -12
@@ -1948,7 +2038,7 @@ strip_loop_path:
 
 skip_char_path:
 	addi $s0, $s0, 1
-	j strip_loop
+	j strip_loop_path
 
 strip_done_path:
 	sb $zero, 0($s1)     # null-terminate the cleaned string
@@ -1962,7 +2052,7 @@ strip_done_path:
 
 # ==============================================================
 # calculateOfflineDepletion
-# Compares saved initial_time with current time and applies EDR.
+# Updates energy and total time alive timer
 # ==============================================================
 calculateOfflineDepletion:
 	addi $sp, $sp, -20
@@ -1987,7 +2077,14 @@ calculateOfflineDepletion:
 	li $t1, 60000          # 60,000 ms in a minute
 	div $t0, $t1
 	mflo $s2               # $s2 = Total full minutes passed
-
+	
+	#calculate time alive 
+	li $t7, 60
+    	mul $t7, $s2, $t7      # $t7 = Seconds passed while offline
+    	lw $t8, timer          # Load existing total time
+    	add $t8, $t8, $t7      # Adding offline time
+   	sw $t8, timer          
+   	
 	#Calculate Depletion (Minutes * EDR)
 	lw $t2, EDR
 	mul $s3, $s2, $t2      # $s3 = total energy to lose
